@@ -1,0 +1,13 @@
+[package]
+name = "wrench"
+version = "0.0.1"
+authors = [] # Awaiting consent to publish names
+description = "A simple interpreted programming language in Rust"
+license = "GNU General Public License v3.0"
+edition = "2024"
+
+[build-dependencies]
+lalrpop = "0.22.1"
+
+[dependencies]
+lalrpop-util = { version = "0.21.0", features = ["lexer", "unicode"] }
