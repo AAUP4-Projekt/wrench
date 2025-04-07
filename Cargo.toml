@@ -1,5 +1,7 @@
+[package]
+name = "wrench"
+version = "0.1.0"
+edition = "2024"
 
-
-#Get all dependencies in this file
-
-logos = "0.15"
+[dependencies]
+logos = "0.15.0"
