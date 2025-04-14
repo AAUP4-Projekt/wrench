@@ -29,8 +29,11 @@ enum Token {
     #[token("false")]
     False,
 
-    #[token("<x>")]
-    Generic,
+    #[token("<")] //FOR GENERICS to be handled at parsing, not lexical analysis
+    LeftAngle,
+
+    #[token(">")] //FOR GENERICS to be handled at parsing, not lexical analysis
+    RightAngle,
 
     #[token("if")]
     If,
