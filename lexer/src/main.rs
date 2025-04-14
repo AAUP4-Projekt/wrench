@@ -94,8 +94,8 @@ enum Token {
 
     //An array of string literals: or words like "cat", "dog", "computer science"
     #[regex(r#""([^"\\]|\\.)*""#)]
-    Stringliteral
-    
+    Stringliteral,
+
     //Whitespace - Ignore whitespace. \t is tab, \n is newline \f is form feed
     #[regex(r"[ \t\n\f]+", logos::skip)]
     Whitespace,
