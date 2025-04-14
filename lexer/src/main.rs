@@ -23,6 +23,12 @@ enum Token {
     #[token("null")]
     Null,
 
+    #[token("true")]
+    True,
+
+    #[token("false")]
+    False,
+
     #[token("<x>")]
     Generic,
 
@@ -32,12 +38,25 @@ enum Token {
     #[token("else")]
     Else,
 
-    //Symbols from arithmetic expressions, and statements
-    #[token("=")]
-    AssignmentOperator,
+    //Definitions from statements
+    #[token("var")]
+    Var,
+
+    #[token("skip")] //equals to "pass" in python
+    Skip,
+
+    //Symbols from arithmetic expressions
+    #[token("**")]
+    DoubleStar,
+
+    #[token("*")]
+    Star,
 
     #[token("==")]
     EqualsOperator,
+
+    #[token("=")]
+    AssignmentOperator,
 
     #[token("+")]
     Plus,
@@ -66,9 +85,14 @@ enum Token {
     //Integer must be at least of length 1, can be anything constructed from 0 to 9
     IntegerNumbers,
 
-    //Whitespace
+    //Double numbers
+    #[regex(r"[0-9]+\.[0-9]+")]
+    DoubleNumbers,
+
+    //An array of string literals: or words like "cat", "dog", "computer science"
+    #[regex(r#""([^"\\]|\\.)*""#)]
+    //Whitespace - Ignore whitespace. \t is tab, \n is newline \f is form feed
     #[regex(r"[ \t\n\f]+", logos::skip)]
-    //Ignore whitespace. \t is tab, \n is newline \f is form feed
     Whitespace,
 }
 
