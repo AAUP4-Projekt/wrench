@@ -1,14 +1,29 @@
-use std::str::FromStr;
 use crate::ast::{Expr, Opcode};
+use crate::Token;
 
 grammar;
 
-pub Expr: Box<Expr> = { // (1)
-    Expr ExprOp Factor => Box::new(Expr::Op(<>)), // (2)
+extern {
+    type Error = ();
+    type Location = usize;
+
+    enum Token {
+        Number => Token::IntegerNumber(<i32>),
+        "+" => Token::Plus,
+        "-" => Token::Minus,
+        "*" => Token::Star,
+        "/" => Token::Slash,
+        "(" => Token::LeftParen,
+        ")" => Token::RightParen,
+    }
+}
+
+pub Expr: Box<Expr> = {
+    Expr ExprOp Factor => Box::new(Expr::Op(<>)),
     Factor,
 };
 
-ExprOp: Opcode = { // (3)
+ExprOp: Opcode = {
     "+" => Opcode::Add,
     "-" => Opcode::Sub,
 };
@@ -24,10 +39,6 @@ FactorOp: Opcode = {
 };
 
 Term: Box<Expr> = {
-    Num => Box::new(Expr::Number(<>)),
+    Number => Box::new(Expr::Number(<>)), 
     "(" <Expr> ")"
-};
-
-Num: i32 = {
-    r"[0-9]+" => i32::from_str(<>).unwrap()
 };
