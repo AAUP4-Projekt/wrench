@@ -1,0 +1,45 @@
+use crate::frontend::ast::Expr;
+use crate::frontend::ast::Opcode;
+use crate::Token;
+
+grammar;
+
+extern {
+    type Error = ();
+    type Location = usize;
+
+    enum Token {
+        Number => Token::IntegerNumber(<i32>),
+        "+" => Token::Plus,
+        "-" => Token::Minus,
+        "*" => Token::Star,
+        "/" => Token::Slash,
+        "(" => Token::LeftParen,
+        ")" => Token::RightParen,
+    }
+}
+
+pub Expr: Box<Expr> = {
+    Expr ExprOp Factor => Box::new(Expr::Op(<>)),
+    Factor,
+};
+
+ExprOp: Opcode = {
+    "+" => Opcode::Add,
+    "-" => Opcode::Sub,
+};
+
+Factor: Box<Expr> = {
+    Factor FactorOp Term => Box::new(Expr::Op(<>)),
+    Term,
+};
+
+FactorOp: Opcode = {
+    "*" => Opcode::Mul,
+    "/" => Opcode::Div,
+};
+
+Term: Box<Expr> = {
+    Number => Box::new(Expr::Number(<>)), 
+    "(" <Expr> ")"
+};
