@@ -1,45 +1,26 @@
-use crate::frontend::ast::Expr;
-use crate::frontend::ast::Opcode;
-use crate::Token;
+use std::str::FromStr;
 
 grammar;
 
-extern {
-    type Error = ();
-    type Location = usize;
+pub Expr: i32 = {
+    <l:Expr> "+" <r:MultExpr> => l + r,
+    <l:Expr> "-" <r:MultExpr> => l - r,
+    MultExpr,
+};
 
-    enum Token {
-        Number => Token::IntegerNumber(<i32>),
-        "+" => Token::Plus,
-        "-" => Token::Minus,
-        "*" => Token::Star,
-        "/" => Token::Slash,
-        "(" => Token::LeftParen,
-        ")" => Token::RightParen,
-    }
-}
+pub MultExpr: i32 = {
+    <l:MultExpr> "*" <r:ExpExpr> => l * r,
+    ExpExpr,
+};
 
-pub Expr: Box<Expr> = {
-    Expr ExprOp Factor => Box::new(Expr::Op(<>)),
+pub ExpExpr: i32 = {
+    <l:ExpExpr> "**" <r:Factor> => l.pow(r as u32),
     Factor,
 };
 
-ExprOp: Opcode = {
-    "+" => Opcode::Add,
-    "-" => Opcode::Sub,
+pub Factor: i32 = {
+    <n:Num> => n,
+    "(" <e:Expr> ")" => e,
 };
 
-Factor: Box<Expr> = {
-    Factor FactorOp Term => Box::new(Expr::Op(<>)),
-    Term,
-};
-
-FactorOp: Opcode = {
-    "*" => Opcode::Mul,
-    "/" => Opcode::Div,
-};
-
-Term: Box<Expr> = {
-    Number => Box::new(Expr::Number(<>)), 
-    "(" <Expr> ")"
-};
+Num: i32 = <s:r"[0-9]+"> => i32::from_str(s).unwrap();
