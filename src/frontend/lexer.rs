@@ -57,6 +57,28 @@ pub enum Token {
     Whitespace,
 }
 
+pub fn print_tokens(tokens: &[(usize, Token, usize)]) {
+    print!("Tokens: ");
+    for (_, token, _) in tokens {
+        print!("{:?} ", token);
+    }
+    println!();
+}
+/*
+pub fn collect_tokens(lexer: Token::Lexer) -> Vec<(usize, Token, usize)> {
+    lexer
+        .spanned()
+        .filter_map(|(token, span)| match token {
+            Ok(t) => Some((span.start, t, span.end)),
+            Err(_) => {
+                eprintln!("Invalid token at {:?}", span);
+                None
+            },
+        })
+        .collect()
+}
+*/
+
 fn parse_integer(lex: &mut logos::Lexer<Token>) -> i32 {
     lex.slice().parse().unwrap_or(0)
 }

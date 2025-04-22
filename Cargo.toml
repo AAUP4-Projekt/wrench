@@ -1,7 +1,13 @@
 [package]
-name = "wrench"
+name = "ptree"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-logos = "0.15.0"
+lalrpop-util = { version = "0.22.1", features = [
+    "unicode",
+]}
+logos = "0.15"
+
+[build-dependencies]
+lalrpop = "0.22.1"

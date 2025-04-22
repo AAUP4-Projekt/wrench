@@ -1,82 +1,57 @@
-//Define enum
+mod frontend;
+mod backend;
 
-use logos::Logos;
+//use frontend::token::Token;
+//use lalrpop_util::lalrpop_mod;
+//use logos::Logos;
 
-#[derive(Logos, Debug, PartialEq)]
+//Custom imports
+//use crate::backend::backend::compile;
 
-enum Token {
-    // Define tokens here:  Based on our abstract syntax add types, and different symbols
-
-    //Let us define our keywords first
-    #[token("bool")]
-    Boolean,
-
-    #[token("int")]
-    IntegerKeyword,
-
-    #[token("double")]
-    Double,
-
-    #[token("string")]
-    String,
-
-    #[token("null")]
-    Null,
-
-    #[token("<x>")]
-    Generic,
-
-    #[token("if")]
-    If,
-
-    #[token("else")]
-    Else,
-
-    //Symbols from arithmetic expressions, and statements
-    #[token("=")]
-    AssignmentOperator,
-
-    #[token("==")]
-    EqualsOperator,
-
-    #[token("+")]
-    Plus,
-
-    #[token("-")]
-    Minus,
-
-    #[token("/")]
-    Slash,
-
-    #[token(";")]
-    Semicolon,
-
-    #[token("!")]
-    ExclamationMark,
-
-    #[token("?")]
-    QuestionMark,
-
-    // Identifiers for variables, or function names: First symbol can be lower/uppcaseletter or underscore. Second symbol same, and can be repeated a number of times
-    #[regex("[a-zA-Z_][a-zA-Z_]*")]
-    Identifier,
-
-    //Integer numbers
-    #[regex("[0-9]+")]
-    //Integer must be at least of length 1, can be anything constructed from 0 to 9
-    IntegerNumber,
-
-    //Whitespace
-    #[regex(r"[ \t\n\f]+", logos::skip)]
-    //Ignore whitespace. \t is tab, \n is newline \f is form feed
-    Whitespace,
-}
-
-fn main() {
-    let mut lex = Token::lexer("I love puppies!");
-
-    while let Some(token) = lex.next() {
-        //Going through all tokens
-        println!("{:?} : {:?}", token, lex.slice());
+//lalrpop_mod!(pub calculator4);
+/*
+//Print the tokens received after lexical analysis
+fn print_tokens(tokens: &[(usize, Token, usize)]) {
+    print!("Tokens: ");
+    for (_, token, _) in tokens {
+        print!("{:?} ", token);
     }
+    println!();
+}
+    */
+
+//#[cfg(not(test))]
+fn main() {
+    let input = "3 + 3 * 2 + 5 * (2 - 1)";
+
+    frontend::frontend::create_ast(input);
+
+    /*
+    let lexer = Token::lexer(input);
+
+    let tokens: Vec<_> = lexer
+        .spanned()
+        .filter_map(|(token, span)| match token {
+            Ok(t) => Some((span.start, t, span.end)),
+            Err(_) => {
+                eprintln!("Invalid token at {:?}", span);
+                None
+            },
+        })
+        .collect();
+    
+    //Print tokens
+    print_tokens(&tokens);
+
+    let parser = calculator4::ExprParser::new();
+    match parser.parse(tokens.into_iter()) {
+        Ok(ast) => {
+            println!("Parse Tree: {:#?}", ast.to_raw());
+            //compile(&ast);
+        }
+        Err(e) => {
+            eprintln!("Parse error: {:?}", e);
+        }
+    }
+    */
 }
