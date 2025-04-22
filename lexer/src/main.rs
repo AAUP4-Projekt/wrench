@@ -5,9 +5,50 @@ use logos::Logos;
 #[derive(Logos, Debug, PartialEq)]
 
 enum Token {
-    // Define tokens here:  Based on our abstract syntax add types, and different symbols
+    //First things first
+    //Whitespace - Ignore whitespace. \t is tab, \n is newline \f is form feed
+    #[regex(r"[ \t\n\f]+", logos::skip)]
+    Whitespace,
 
-    //Let us define keywords first
+    #[error] //error handler
+    Error,
+
+    #[regex(r"//[^\n]*", logos::skip)] //ignore oneline comments like this one
+
+    // Identifiers variables, or function names
+    #[regex("[a-zA-Z_][a-zA-Z_]*")]
+    Identifier,
+
+    //Operators
+    #[token("**")]
+    DoubleStar,
+
+    #[token("*")]
+    Star,
+
+    #[token("==")]
+    EqualsOperator,
+
+    #[token("=")]
+    AssignmentOperator,
+
+    #[token("+")]
+    Plus,
+
+    #[token("-")]
+    Minus,
+
+    #[token("/")]
+    Slash,
+
+    //Constants
+    #[regex("[0-9]+")]
+    IntegerNumbers,
+
+    #[regex(r"[0-9]+\.[0-9]+")]
+    DoubleNumbers,
+
+    //Keywords
     #[token("bool")]
     Boolean,
 
@@ -20,11 +61,29 @@ enum Token {
     #[token("string")]
     String,
 
+    #[token("table")]
+    Table,
+
+    #[token("row")]
+    Row,
+
+    #[token("fn")]
+    Function,
+
+    #[token("var")]
+    Var,
+
+    #[token("const")]
+    Constant,
+
     #[token("null")]
     Null,
 
-    #[token("<x>")]
-    Generic,
+    #[token("true")]
+    True,
+
+    #[token("false")]
+    False,
 
     #[token("if")]
     If,
@@ -32,44 +91,53 @@ enum Token {
     #[token("else")]
     Else,
 
-    //Symbols from arithmetic expressions, and statements
-    #[token("=")]
-    AssignmentOperator,
+    #[token("while")]
+    While,
 
-    #[token("==")]
-    EqualsOperator,
+    #[token("skip")] //equals to "pass" in python
+    Skip,
 
-    #[token("+")]
-    Plus,
+    //Literals
+    #[regex(r#""([^"\\]|\\.)*""#)]
+    Stringliteral,
 
-    #[token("-")]
-    Minus,
-
-    #[token("/")]
-    Slash,
-
+    //Punctuators
     #[token(";")]
     Semicolon,
 
+    #[token("(")]
+    Openparan,
+
+    #[token(")")]
+    Closeparan,
+
+    #[token("{")]
+    Opencurlybracket,
+
+    #[token("}")]
+    Closecurlybracket,
+
+    #[token("[")]
+    Opensquarebracket,
+
+    #[token("]")]
+    Closesquarebracket,
+
+    #[token("<")] //FOR GENERICS to be handled at parsing, not lexical analysis
+    LeftAngle,
+
+    #[token(">")] //FOR GENERICS to be handled at parsing, not lexical analysis
+    RightAngle,
+
+    //Special chars
     #[token("!")]
     ExclamationMark,
 
     #[token("?")]
     QuestionMark,
 
-    // Identifiers for variables, or function names: First symbol can be lower/uppcaseletter or underscore. Second symbol same, and can be repeated a number of times
-    #[regex("[a-zA-Z_][a-zA-Z_]*")]
-    Identifier,
-
-    //Integer numbers
-    #[regex("[0-9]+")]
-    //Integer must be at least of length 1, can be anything constructed from 0 to 9
-    IntegerNumbers,
-
-    //Whitespace
-    #[regex(r"[ \t\n\f]+", logos::skip)]
-    //Ignore whitespace. \t is tab, \n is newline \f is form feed
-    Whitespace,
+    #[token("$")]
+    Dollarsign,
 }
 
 fn main() {
