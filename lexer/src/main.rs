@@ -111,13 +111,13 @@ enum Token {
     #[token(")")]
     Closeparan,
 
-    #[token("}")]
+    #[token("{")]
     Opencurlybracket,
 
     #[token("}")]
     Closecurlybracket,
 
-    #[token("[]")]
+    #[token("[")]
     Opensquarebracket,
 
     #[token("]")]
