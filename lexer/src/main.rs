@@ -5,50 +5,21 @@ use logos::Logos;
 #[derive(Logos, Debug, PartialEq)]
 
 enum Token {
-    // Define tokens here:  Based on our abstract syntax add types, and different symbols
+    //First things first
+    //Whitespace - Ignore whitespace. \t is tab, \n is newline \f is form feed
+    #[regex(r"[ \t\n\f]+", logos::skip)]
+    Whitespace,
 
-    //Let us define keywords first
-    #[token("bool")]
-    Boolean,
+    #[error] //error handler
+    Error,
 
-    #[token("int")]
-    IntegerKeyword,
+    #[regex(r"//[^\n]*", logos::skip)] //ignore oneline comments like this one
 
-    #[token("double")]
-    Double,
+    // Identifiers variables, or function names
+    #[regex("[a-zA-Z_][a-zA-Z_]*")]
+    Identifier,
 
-    #[token("string")]
-    String,
-
-    #[token("null")]
-    Null,
-
-    #[token("true")]
-    True,
-
-    #[token("false")]
-    False,
-
-    #[token("<")] //FOR GENERICS to be handled at parsing, not lexical analysis
-    LeftAngle,
-
-    #[token(">")] //FOR GENERICS to be handled at parsing, not lexical analysis
-    RightAngle,
-
-    #[token("if")]
-    If,
-
-    #[token("else")]
-    Else,
-
-    //Definitions from statements
-    #[token("var")]
-    Var,
-
-    #[token("skip")] //equals to "pass" in python
-    Skip,
-
-    //Symbols from arithmetic expressions
+    //Operators
     #[token("**")]
     DoubleStar,
 
@@ -70,35 +41,103 @@ enum Token {
     #[token("/")]
     Slash,
 
+    //Constants
+    #[regex("[0-9]+")]
+    IntegerNumbers,
+
+    #[regex(r"[0-9]+\.[0-9]+")]
+    DoubleNumbers,
+
+    //Keywords
+    #[token("bool")]
+    Boolean,
+
+    #[token("int")]
+    IntegerKeyword,
+
+    #[token("double")]
+    Double,
+
+    #[token("string")]
+    String,
+
+    #[token("table")]
+    Table,
+
+    #[token("row")]
+    Row,
+
+    #[token("fn")]
+    Function,
+
+    #[token("var")]
+    Var,
+
+    #[token("const")]
+    Constant,
+
+    #[token("null")]
+    Null,
+
+    #[token("true")]
+    True,
+
+    #[token("false")]
+    False,
+
+    #[token("if")]
+    If,
+
+    #[token("else")]
+    Else,
+
+    #[token("while")]
+    While,
+
+    #[token("skip")] //equals to "pass" in python
+    Skip,
+
+    //Literals
+    #[regex(r#""([^"\\]|\\.)*""#)]
+    Stringliteral,
+
+    //Punctuators
     #[token(";")]
     Semicolon,
 
+    #[token("(")]
+    Openparan,
+
+    #[token(")")]
+    Closeparan,
+
+    #[token("}")]
+    Opencurlybracket,
+
+    #[token("}")]
+    Closecurlybracket,
+
+    #[token("[]")]
+    Opensquarebracket,
+
+    #[token("]")]
+    Closesquarebracket,
+
+    #[token("<")] //FOR GENERICS to be handled at parsing, not lexical analysis
+    LeftAngle,
+
+    #[token(">")] //FOR GENERICS to be handled at parsing, not lexical analysis
+    RightAngle,
+
+    //Special chars
     #[token("!")]
     ExclamationMark,
 
     #[token("?")]
     QuestionMark,
 
-    // Identifiers for variables, or function names: First symbol can be lower/uppcaseletter or underscore. Second symbol same, and can be repeated a number of times
-    #[regex("[a-zA-Z_][a-zA-Z_]*")]
-    Identifier,
-
-    //Integer numbers
-    #[regex("[0-9]+")]
-    //Integer must be at least of length 1, can be anything constructed from 0 to 9
-    IntegerNumbers,
-
-    //Double numbers
-    #[regex(r"[0-9]+\.[0-9]+")]
-    DoubleNumbers,
-
-    //An array of string literals: or words like "cat", "dog", "computer science"
-    #[regex(r#""([^"\\]|\\.)*""#)]
-    Stringliteral,
-
-    //Whitespace - Ignore whitespace. \t is tab, \n is newline \f is form feed
-    #[regex(r"[ \t\n\f]+", logos::skip)]
-    Whitespace,
+    #[token("$")]
+    Dollarsign,
 }
 
 fn main() {
