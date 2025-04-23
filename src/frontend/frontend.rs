@@ -27,9 +27,8 @@ pub fn create_ast(input: &str) {
     match parser.parse(tokens.into_iter()) {
         Ok(program) => {
             for statement in program{
-                println!("Statement: {:#?}", statement.to_raw());
+                println!("Parse tree: {:#?}", statement.to_raw());
             }
-            //println!("Parse Tree: {:#?}", ast.to_raw());
         }
         Err(e) => {
             eprintln!("Parse error: {:?}", e);

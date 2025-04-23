@@ -4,24 +4,35 @@ mod frontend;
 mod backend;
 
 
-//use frontend::token::Token;
-//use lalrpop_util::lalrpop_mod;
-//use logos::Logos;
-
-//Custom imports
-//use crate::backend::backend::compile;
-
-//lalrpop_mod!(pub calculator4);
 /*
-//Print the tokens received after lexical analysis
-fn print_tokens(tokens: &[(usize, Token, usize)]) {
-    print!("Tokens: ");
-    for (_, token, _) in tokens {
-        print!("{:?} ", token);
-    }
-    println!();
-}
-    */
+Statement(
+    Expr(
+        Box::new(Op(
+            Box::new(Number(3)), 
+            +, 
+            Box::new(Op(
+                Box::new(Number(5)),
+                 *, 
+                Box::new(Op(
+                    Box::new(Number(2)), 
+                    *, 
+                    Box::new(Number(3))
+                ))
+            ))
+        ))
+    )
+)
+
+Statement(
+    Expr(
+        Box::new(Op(
+            Box::new(Number(2)), 
+            +, 
+            Box::new(Number(3))
+        ))
+    )
+)
+*/
 
 //#[cfg(not(test))]
 fn main() {

@@ -12,6 +12,8 @@ pub enum Expr {
     Op(Box<Expr>, Opcode, Box<Expr>), // Represents an operation with left and right operands and an operator
 }
 
+
+
 pub enum Declaration{
     Variable(Type, String, Box<Expr>) // Represents a variable declaration with its type, name, and assigned value
 }
