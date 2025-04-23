@@ -27,8 +27,6 @@ extern {
         ")" => Token::RightParen,
         ";" => Token::Semicolon,
         "=" => Token::AssignmentOperator,
-        "true" => Token::True,
-        "false" => Token::False,
         "bool" => Token::Boolean,
         "int" => Token::IntegerKeyword,
         "double" => Token::Double,
@@ -89,6 +87,8 @@ FactorOp: Opcode = {
 Term: Box<Expr> = {
     // A literal number (e.g., 42) becomes Expr::Number(i32)
     Number => Box::new(Expr::Number(<>)), 
+    // An identifier
+    Identifier => Box::new(Expr::Identifier(<>)),
     // A parenthesized expression (e.g., (a + b)) is 
     "(" <Expr> ")"
 };
