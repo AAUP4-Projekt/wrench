@@ -25,6 +25,6 @@ fn print_tokens(tokens: &[(usize, Token, usize)]) {
 
 //#[cfg(not(test))]
 fn main() {
-    let input = "3 + 5 * (2 ** 3)";
+    let input = "3 + 5 * (2 * 3)";
     create_ast(input);
 }

@@ -1,4 +1,6 @@
 //use crate::frontend::{Expr, Opcode};
+
+/*
 use crate::frontend::ast::Expr;
 use crate::frontend::ast::Opcode;
 
@@ -39,3 +41,4 @@ fn generate_llvm_ir(ast: &Expr, counter: &mut u32, buffer: &mut Vec<String>) -> 
         _ => String::from("error"),
     }
 }
+*/
