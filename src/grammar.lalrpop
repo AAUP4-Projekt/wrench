@@ -1,0 +1,101 @@
+use crate::frontend::ast::Expr;
+use crate::frontend::ast::Opcode;
+use crate::frontend::ast::Statement;
+use crate::frontend::ast::TypeConstruct;
+use crate::frontend::lexer::Token;
+
+// This beings the grammer definition used by lalrpop
+grammar;
+
+// External definitions for the grammar
+extern {
+    // Custom error type for the parser (Currently a placeholder)
+    //type Error = ();
+
+    // Type used to track token positions
+    type Location = usize;
+
+    // Mapping lexer tokens to the grammar's internal Token enum
+    enum Token {
+        Number => Token::Integer(<i32>),
+        Identifier => Token::Identifier(<String>),
+        "+" => Token::Plus,
+        "-" => Token::Minus,
+        "*" => Token::Star,
+        "/" => Token::Slash,
+        "(" => Token::Openparan,
+        ")" => Token::Closeparan,
+        ";" => Token::Semicolon,
+        "=" => Token::AssignmentOperator,
+        "true" => Token::True,
+        "false" => Token::False,
+        "bool" => Token::Boolean,
+        "int" => Token::IntegerKeyword,
+        "double" => Token::DoubleKeyword,
+        "string" => Token::String,
+    }
+}
+
+pub Program: Vec<Box<Statement>> = {
+    // Match one or more statements
+    <s:Stmt +> => s,
+};
+
+pub Stmt: Box<Statement> = {
+    // Match a statement that consists of an expression followed by a semicolon
+    <e:Expr> ";" => Box::new(Statement::Expr(e)),
+    <t:Type ?> <x:Identifier> "=" <e:Expr> ";" => match t {
+        Some(t) => Box::new(Statement::VariableDeclaration(t, x, e)), //Variable declaration E.g. int x = 5;
+        None => Box::new(Statement::VariableAssignment(x, e)) //Variable assignment E.g. x = 5;
+    }
+};
+
+pub Type: TypeConstruct = {
+    // Match the type keywords and map them to the corresponding enum variants
+    "bool" => TypeConstruct::Bool,
+    "int" => TypeConstruct::Int,
+    "double" => TypeConstruct::Double,
+    "string" => TypeConstruct::String,
+};
+
+// Entry rule for expressions: This is the starting point of the grammar
+// and defines the structure of valid expressions.
+pub Expr: Box<Expr> = {
+    // Match an expression with an operator and a factor (e.g., a + b)
+    Expr ExprOp Factor => Box::new(Expr::Op(<>)),
+    // OR just a factor (e.g., a)
+    Factor,
+};
+
+//ExprOp is used to define the operators that can be used between expressions
+ExprOp: Opcode = {
+    "+" => Opcode::Add,
+    "-" => Opcode::Sub,
+};
+
+// Factor rule handles the multiplication and division operations
+Factor: Box<Expr> = {
+    // Match a factor with an operator and a term (e.g., a * b)
+    Factor FactorOp Term => Box::new(Expr::Op(<>)),
+    // Or just a term (e.g., a)
+    Term,
+};
+
+// FactorOp defines the operators that can be used between factors
+FactorOp: Opcode = {
+    "*" => Opcode::Mul,
+    "/" => Opcode::Div,
+};
+
+// Term represents the basic building blocks of expressions, such as numbers and parenthesized expressions
+Term: Box<Expr> = {
+    // A literal number (e.g., 42) becomes Expr::Number(i32)
+    Number => Box::new(Expr::Number(<>)), 
+    // An identifier
+    Identifier => Box::new(Expr::Identifier(<>)),
+    //True and false
+    "true" => Box::new(Expr::Bool(true)),
+    "false" => Box::new(Expr::Bool(false)),
+    // A parenthesized expression (e.g., (a + b)) is 
+    "(" <Expr> ")"
+};
