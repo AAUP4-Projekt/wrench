@@ -1,4 +1,4 @@
-use std::fmt::{format, Debug, Error, Formatter};
+use std::fmt::{Debug, Error, Formatter};
 
 pub enum Statement {
     Expr(Box<Expr>), // Represents an expression statement
