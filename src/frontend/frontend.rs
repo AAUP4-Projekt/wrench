@@ -22,11 +22,14 @@ pub fn create_ast(input: &str) {
         })
         .collect();
 
-    let parser = grammar::ExprParser::new();
+    let parser = grammar::ProgramParser::new();
 
     match parser.parse(tokens.into_iter()) {
-        Ok(ast) => {
-            println!("Parse Tree: {:#?}", ast.to_raw());
+        Ok(program) => {
+            for statement in program{
+                println!("Statement: {:#?}", statement.to_raw());
+            }
+            //println!("Parse Tree: {:#?}", ast.to_raw());
         }
         Err(e) => {
             eprintln!("Parse error: {:?}", e);

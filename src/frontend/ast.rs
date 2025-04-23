@@ -1,32 +1,58 @@
-use std::fmt::{Debug, Error, Formatter};
+use std::fmt::{format, Debug, Error, Formatter};
 
-pub enum Expr {
-    Number(i32),
-    Op(Box<Expr>, Opcode, Box<Expr>),
-    Error,
+pub enum Statement {
+    Expr(Box<Expr>), // Represents an expression statement
+    Declaration(Box<Declaration>), // Represents a variable declaration
 }
 
+// The 'Expr' enum represents the abstract syntax tree (AST)
+pub enum Expr {
+    Number(i32), // Represents a number
+    Identifier(String), // Represents an identifier (variable name)
+    Op(Box<Expr>, Opcode, Box<Expr>), // Represents an operation with left and right operands and an operator
+}
+
+pub enum Declaration{
+    Variable(Type, String, Box<Expr>) // Represents a variable declaration with its type, name, and assigned value
+}
+
+// Enum representing types
+#[derive(Copy, Clone)]
+pub enum Type {
+    Bool,
+    Int,
+    Double,
+    String
+}
+
+// Enum representing the different types of operations
 #[derive(Copy, Clone)]
 pub enum Opcode {
-    Mul, 
-    Div,
-    Add, 
-    Sub,
+    Mul, // multiplication (*)
+    Div, // division (/)
+    Add, // addition (+)
+    Sub, // subtraction (-)
 }
-
-/// Debug implementation for `Expr` to pretty-print the AST
+/*
+// Custom 'Debug' implementation for pretty-printing the 'Expr' nodes
+/// Output might look like: `(1 + (2 * 3))`
 impl Debug for Expr {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> Result<(), Error> {
         use self::Expr::*;
         match *self {
+            // Print the number directly
             Number(n) => write!(fmt, "{:?}", n),
+
+            // Print the operation with its operands and operator
             Op(ref l, op, ref r) => write!(fmt, "({:?} {:?} {:?})", l, op, r),
-            Error => write!(fmt, "error"),
+
         }
     }
 }
+    */
 
-/// Debug implementation for `Opcode` to display operators
+// Custom 'Debug' implementation for pretty-printing the 'Opcode' enum
+/// This will print symbols like `+`, `-`, `*`, `/` instead of enum names.
 impl Debug for Opcode {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> Result<(), Error> {
         use self::Opcode::*;
@@ -39,11 +65,47 @@ impl Debug for Opcode {
     }
 }
 
-/// Optional: Add evaluation logic for the AST
+impl Debug for Type {
+    fn fmt(&self, fmt: &mut Formatter<'_>) -> Result<(), Error> {
+        use self::Type::*;
+        match *self {
+            Bool => write!(fmt, "Bool"),
+            Int => write!(fmt, "Int"),
+            Double => write!(fmt, "Double"),
+            String => write!(fmt, "String"),
+        }
+    }
+}
+
+
+impl Statement {
+    pub fn to_raw(&self) -> String {
+        let x = match self {
+            Statement::Expr(expr) => format!("Expr(Box::new({}))", expr.to_raw()),
+            Statement::Declaration(decl) => format!("Declaration(Box::new({}))", decl.to_raw())
+        };
+        return format!("Statement({})", x);
+    }
+}
+
+impl Declaration {
+    pub fn to_raw(&self) -> String {
+        match self {
+            Declaration::Variable(typ, name, expr) => format!("Variable({:?}, {}, Box::new({}))", typ, name, expr.to_raw())
+        }
+    }
+}
+
+// Implementation block for methods on 'Expr'
 impl Expr {
+    // This converts the 'Expr' into a raw string representation that can be used for debugging or logging
+    /// Output example:
+    /// `Op(Box::new(Number(3)), +, Box::new(Op(Box::new(Number(5)), *, Box::new(Number(2))))`
     pub fn to_raw(&self) -> String {
         match self {
             Expr::Number(n) => format!("Number({})", n),
+
+            // Recursively convert the left and right operands to raw strings
             Expr::Op(left, op, right) => {
                 format!(
                     "Op(Box::new({}), {:?}, Box::new({}))",
@@ -52,12 +114,22 @@ impl Expr {
                     right.to_raw()
                 )
             }
-            Expr::Error => "Error".to_string(),
+
+            Expr::Identifier(name) => format!("Identifier({})", name),
+
+            // Display "Error" for errors
+            //Expr::Error => "Error".to_string(),
         }
     }
+
+    /*
+    // Recursively evaluates the AST and returns the result, or and error message if the expression is invalid
+    // It can look something like this: `Ok(5)` or `Err("Division by zero")`
     pub fn evaluate(&self) -> Result<i32, String> {
         match self {
             Expr::Number(n) => Ok(*n),
+
+            // Evaluate both sides and apply the operator
             Expr::Op(left, op, right) => {
                 let l_val = left.evaluate()?;
                 let r_val = right.evaluate()?;
@@ -74,8 +146,11 @@ impl Expr {
                     }
                 }
             }
-            Expr::Error => Err("Invalid expression".to_string()),
+
+            // Return an error if trying to evalute a broken expression
+            //Expr::Error => Err("Invalid expression".to_string()),
         }
     }
+    */
 }
 

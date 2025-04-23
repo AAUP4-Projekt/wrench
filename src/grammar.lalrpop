@@ -1,5 +1,6 @@
 use crate::frontend::ast::Expr;
 use crate::frontend::ast::Opcode;
+use crate::frontend::ast::Statement;
 use crate::frontend::lexer::Token;
 
 // This beings the grammer definition used by lalrpop
@@ -22,8 +23,22 @@ extern {
         "/" => Token::Slash,
         "(" => Token::LeftParen,
         ")" => Token::RightParen,
+        ";" => Token::Semicolon,
     }
 }
+
+pub Program: Vec<Box<Statement>> = {
+    // Match one or more statements
+    <s:Stmt +> => s,
+};
+
+pub Stmt: Box<Statement> = {
+    // Match a statement that consists of an expression followed by a semicolon
+    //Expr ";" => Box::new(Statement::Expr(<>)),
+    <e:Expr> ";" => Box::new(Statement::Expr(e)),
+    // OR just an expression (e.g., a + b)
+    //Expr,
+};
 
 // Entry rule for expressions: This is the starting point of the grammar
 // and defines the structure of valid expressions.
