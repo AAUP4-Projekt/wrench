@@ -1,13 +1,7 @@
 use logos::Logos;
 use std::fmt;
 
-#[derive(Logos, Debug, PartialEq, Clone)]
-//Define enum
-
-use logos::Logos;
-
 #[derive(Logos, Debug, PartialEq)]
-
 enum Token {
     //First things first
     //Whitespace - Ignore whitespace. \t is tab, \n is newline \f is form feed
@@ -143,16 +137,6 @@ enum Token {
     #[token("$")]
     Dollarsign,
 }
-
-fn main() {
-    let mut lex = Token::lexer("My mom said that 24 = 6 * 4");
-
-    while let Some(token) = lex.next() {
-        //Going through all tokens
-        println!("{:?} : {:?}", token, lex.slice());
-    }
-}
-
 
 pub fn print_tokens(tokens: &[(usize, Token, usize)]) {
     print!("Tokens: ");
