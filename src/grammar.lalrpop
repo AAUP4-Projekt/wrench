@@ -92,8 +92,8 @@ Term: Box<Expr> = {
     // An identifier
     Identifier => Box::new(Expr::Identifier(<>)),
     //True and false
-    "true" => Box::new(Expr::Boolean(true)),
-    "false" => Box::new(Expr::Boolean(false)),
+    "true" => Box::new(Expr::Bool(true)),
+    "false" => Box::new(Expr::Bool(false)),
     // A parenthesized expression (e.g., (a + b)) is 
     "(" <Expr> ")"
 };

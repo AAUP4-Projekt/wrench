@@ -9,6 +9,7 @@ pub enum Statement {
 pub enum Expr {
     Number(i32), // Represents a number
     Identifier(String), // Represents an identifier (variable name)
+    Bool(bool), // Represents a boolean value
     Op(Box<Expr>, Opcode, Box<Expr>), // Represents an operation with left and right operands and an operator
 }
 
@@ -92,6 +93,8 @@ impl Expr {
     pub fn to_raw(&self) -> String {
         match self {
             Expr::Number(n) => format!("Number({})", n),
+
+            Expr::Bool(b) => format!("Bool({})", b),
 
             // Recursively convert the left and right operands to raw strings
             Expr::Op(left, op, right) => {
