@@ -36,17 +36,17 @@ extern {
     }
 }
 
-pub Program: Vec<Box<Statement>> = {
+pub Program: Vec<Statement> = {
     // Match one or more statements
     <s:Stmt +> => s,
 };
 
-pub Stmt: Box<Statement> = {
+pub Stmt: Statement = {
     // Match a statement that consists of an expression followed by a semicolon
-    <e:Expr> ";" => Box::new(Statement::Expr(e)),
+    <e:Expr> ";" => Statement::Expr(e),
     <t:Type ?> <x:Identifier> "=" <e:Expr> ";" => match t {
-        Some(t) => Box::new(Statement::VariableDeclaration(t, x, e)), //Variable declaration E.g. int x = 5;
-        None => Box::new(Statement::VariableAssignment(x, e)) //Variable assignment E.g. x = 5;
+        Some(t) => Statement::VariableDeclaration(t, x, e), //Variable declaration E.g. int x = 5;
+        None => Statement::VariableAssignment(x, e) //Variable assignment E.g. x = 5;
     }
 };
 
