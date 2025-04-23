@@ -2,7 +2,8 @@ use std::fmt::{format, Debug, Error, Formatter};
 
 pub enum Statement {
     Expr(Box<Expr>), // Represents an expression statement
-    VariableDeclaration(TypeConstruct, String, Box<Expr>) // Represents a variable declaration with its type, name, and assigned value
+    VariableDeclaration(TypeConstruct, String, Box<Expr>), // Represents a variable declaration with its type, name, and assigned value
+    VariableAssignment(String, Box<Expr>), // Represents a variable assignment with its name and value
 }
 
 // The 'Expr' enum represents the abstract syntax tree (AST)
@@ -79,7 +80,8 @@ impl Statement {
     pub fn to_raw(&self) -> String {
         let x = match self {
             Statement::Expr(expr) => format!("Expr(Box::new({}))", expr.to_raw()),
-            Statement::VariableDeclaration(t, x, e) => format!("VariableDelcaration({:?}, {}, Box::new({}))", t, x, e.to_raw())
+            Statement::VariableDeclaration(t, x, e) => format!("VariableDelcaration({:?}, {}, Box::new({}))", t, x, e.to_raw()),
+            Statement::VariableAssignment(x, e) => format!("VariableAssignment({}, Box::new({}))", x, e.to_raw()),
         };
         return format!("Statement({})", x);
     }
