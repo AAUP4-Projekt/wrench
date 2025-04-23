@@ -6,6 +6,7 @@ use super::lexer::Token;
 
 lalrpop_mod!(pub grammar);
 
+//Lex tokens from input and parse them into a syntax tree
 pub fn create_syntax_tree(input: &str) -> Vec<Statement> {
     //Lex
     let lexer = Token::lexer(input);
@@ -30,12 +31,14 @@ pub fn create_syntax_tree(input: &str) -> Vec<Statement> {
     }
 }
 
+//Print the syntax tree for debugging purposes
 fn print_syntax_tree(syntax_tree: &[Statement]) {
     for (i, statement) in syntax_tree.iter().enumerate() {
         println!("Statement {}: {:?}", i + 1, statement);
     }
 }
 
+//Create the AST from the input string
 pub fn create_ast(input: &str) {
     // Create a syntax tree from the input string
     let syntax_tree = create_syntax_tree(input);
@@ -53,7 +56,7 @@ mod tests {
     use super::super::ast::{Expr, Operator, Statement}; // Import the AST types
 
     #[test]
-    fn correct_expression_parse() {
+    fn correct_expression_parse() { //Test if input parses correctly
         // Arrange
         let expected_syntax_tree = vec![
             Statement::Expr(Box::new(Expr::Operation(
@@ -75,7 +78,7 @@ mod tests {
     }
 
     #[test]
-    fn incorrect_expression_parse() {
+    fn incorrect_expression_parse() { //Test if wrong input parses incorrectly
         // Arrange
         let expected_syntax_tree = vec![
             Statement::Expr(Box::new(Expr::Operation(
@@ -97,7 +100,7 @@ mod tests {
     }
 
     #[test]
-    fn comments_and_witespace_ignored() {
+    fn comments_and_witespace_ignored() { //Test if comments and whitespace are ignored
         // Arrange
         let expected_syntax_tree = vec![
             Statement::Expr(Box::new(

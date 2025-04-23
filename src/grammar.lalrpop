@@ -9,9 +9,6 @@ grammar;
 
 // External definitions for the grammar
 extern {
-    // Custom error type for the parser (Currently a placeholder)
-    //type Error = ();
-
     // Type used to track token positions
     type Location = usize;
 
