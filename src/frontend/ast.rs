@@ -2,7 +2,7 @@ use std::fmt::{format, Debug, Error, Formatter};
 
 pub enum Statement {
     Expr(Box<Expr>), // Represents an expression statement
-    Declaration(Box<Declaration>), // Represents a variable declaration
+    VariableDeclaration(TypeConstruct, String, Box<Expr>) // Represents a variable declaration with its type, name, and assigned value
 }
 
 // The 'Expr' enum represents the abstract syntax tree (AST)
@@ -12,15 +12,9 @@ pub enum Expr {
     Op(Box<Expr>, Opcode, Box<Expr>), // Represents an operation with left and right operands and an operator
 }
 
-
-
-pub enum Declaration{
-    Variable(Type, String, Box<Expr>) // Represents a variable declaration with its type, name, and assigned value
-}
-
 // Enum representing types
 #[derive(Copy, Clone)]
-pub enum Type {
+pub enum TypeConstruct {
     Bool,
     Int,
     Double,
@@ -67,9 +61,9 @@ impl Debug for Opcode {
     }
 }
 
-impl Debug for Type {
+impl Debug for TypeConstruct {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> Result<(), Error> {
-        use self::Type::*;
+        use self::TypeConstruct::*;
         match *self {
             Bool => write!(fmt, "Bool"),
             Int => write!(fmt, "Int"),
@@ -84,17 +78,9 @@ impl Statement {
     pub fn to_raw(&self) -> String {
         let x = match self {
             Statement::Expr(expr) => format!("Expr(Box::new({}))", expr.to_raw()),
-            Statement::Declaration(decl) => format!("Declaration(Box::new({}))", decl.to_raw())
+            Statement::VariableDeclaration(t, x, e) => format!("VariableDelcaration({:?}, {}, Box::new({}))", t, x, e.to_raw())
         };
         return format!("Statement({})", x);
-    }
-}
-
-impl Declaration {
-    pub fn to_raw(&self) -> String {
-        match self {
-            Declaration::Variable(typ, name, expr) => format!("Variable({:?}, {}, Box::new({}))", typ, name, expr.to_raw())
-        }
     }
 }
 

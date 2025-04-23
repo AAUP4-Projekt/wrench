@@ -5,6 +5,8 @@ mod backend;
 
 
 /*
+let input = "3 + 5 * (2 * 3); 2 + 3;";
+
 Statement(
     Expr(
         Box::new(Op(
@@ -36,6 +38,6 @@ Statement(
 
 //#[cfg(not(test))]
 fn main() {
-    let input = "3 + 5 * (2 * 3); 2 + 3;";
+    let input = "int x = 7; bool y = 3;";
     create_ast(input);
 }

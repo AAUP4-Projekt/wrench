@@ -46,8 +46,8 @@ pub enum Token {
     RightParen,
 
     // Identifiers and numbers
-    #[regex("[a-zA-Z_][a-zA-Z_]*")]
-    Identifier,
+    #[regex("[a-zA-Z_][a-zA-Z_]*", |lex| lex.slice().to_string())]
+    Identifier(String),
     #[regex(r"-?([0-9]+)", priority = 2, callback = parse_integer)]
     IntegerNumber(i32),
 

@@ -1,6 +1,7 @@
 use crate::frontend::ast::Expr;
 use crate::frontend::ast::Opcode;
 use crate::frontend::ast::Statement;
+use crate::frontend::ast::TypeConstruct;
 use crate::frontend::lexer::Token;
 
 // This beings the grammer definition used by lalrpop
@@ -17,6 +18,7 @@ extern {
     // Mapping lexer tokens to the grammar's internal Token enum
     enum Token {
         Number => Token::IntegerNumber(<i32>),
+        Identifier => Token::Identifier(<String>),
         "+" => Token::Plus,
         "-" => Token::Minus,
         "*" => Token::Star,
@@ -24,6 +26,13 @@ extern {
         "(" => Token::LeftParen,
         ")" => Token::RightParen,
         ";" => Token::Semicolon,
+        "=" => Token::AssignmentOperator,
+        "true" => Token::True,
+        "false" => Token::False,
+        "bool" => Token::Boolean,
+        "int" => Token::IntegerKeyword,
+        "double" => Token::Double,
+        "string" => Token::String,
     }
 }
 
@@ -34,10 +43,17 @@ pub Program: Vec<Box<Statement>> = {
 
 pub Stmt: Box<Statement> = {
     // Match a statement that consists of an expression followed by a semicolon
-    //Expr ";" => Box::new(Statement::Expr(<>)),
     <e:Expr> ";" => Box::new(Statement::Expr(e)),
-    // OR just an expression (e.g., a + b)
-    //Expr,
+    <t:Type> <x:Identifier> "=" <e:Expr> ";" => Box::new(Statement::VariableDeclaration(t, x, e)),
+
+};
+
+pub Type: TypeConstruct = {
+    // Match the type keywords and map them to the corresponding enum variants
+    "bool" => TypeConstruct::Bool,
+    "int" => TypeConstruct::Int,
+    "double" => TypeConstruct::Double,
+    "string" => TypeConstruct::String,
 };
 
 // Entry rule for expressions: This is the starting point of the grammar
