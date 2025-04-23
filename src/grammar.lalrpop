@@ -17,19 +17,19 @@ extern {
 
     // Mapping lexer tokens to the grammar's internal Token enum
     enum Token {
-        Number => Token::IntegerNumber(<i32>),
+        Number => Token::Integer(<i32>),
         Identifier => Token::Identifier(<String>),
         "+" => Token::Plus,
         "-" => Token::Minus,
         "*" => Token::Star,
         "/" => Token::Slash,
-        "(" => Token::LeftParen,
-        ")" => Token::RightParen,
+        "(" => Token::Openparan,
+        ")" => Token::Closeparan,
         ";" => Token::Semicolon,
         "=" => Token::AssignmentOperator,
         "bool" => Token::Boolean,
         "int" => Token::IntegerKeyword,
-        "double" => Token::Double,
+        "double" => Token::DoubleKeyword,
         "string" => Token::String,
     }
 }
