@@ -38,6 +38,6 @@ Statement(
 
 //#[cfg(not(test))]
 fn main() {
-    let input = "int x = 7; x = 5;";
+    let input = "int x = 7; x = 5; //Hello";
     create_ast(input);
 }

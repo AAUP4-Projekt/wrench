@@ -5,12 +5,13 @@ use logos::Logos;
 #[derive(Logos, Debug, PartialEq, Clone)]
 pub enum Token {
 
+    //ignore whitespace
     #[regex(r"[ \t\n\f]+", logos::skip)]
     Whitespace,
     
-    /*
-    #[regex(r"//[^\n]*", logos::skip)] //ignore oneline comments like this one
-    */
+    //ignore oneline comments like this one
+    #[regex(r"//[^\n]*", logos::skip)]
+    Comment,
     
     // Identifiers variables, or function names
     #[regex("[a-zA-Z_][a-zA-Z_]*", |lex| lex.slice().to_string())]
