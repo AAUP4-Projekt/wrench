@@ -1,6 +1,6 @@
+use super::ast::Statement;
 use lalrpop_util::lalrpop_mod;
 use logos::Logos;
-use super::ast::Statement;
 
 use super::lexer::Token;
 
@@ -19,7 +19,7 @@ pub fn create_syntax_tree(input: &str) -> Vec<Statement> {
             Err(_) => {
                 eprintln!("Invalid token at {:?}", span);
                 None
-            },
+            }
         })
         .collect();
 
@@ -46,29 +46,27 @@ pub fn create_ast(input: &str) {
     // TODO: Type check and return the AST
 }
 
-
 /*
     Unit Tests
 */
 #[cfg(test)]
 mod tests {
-    use super::*; // Import the module being tested
-    use super::super::ast::{Expr, Operator, Statement}; // Import the AST types
+    use super::super::ast::{Expr, Operator, Statement};
+    use super::*; // Import the module being tested // Import the AST types
 
     #[test]
-    fn correct_expression_parse() { //Test if input parses correctly
+    fn correct_expression_parse() {
+        //Test if input parses correctly
         // Arrange
-        let expected_syntax_tree = vec![
-            Statement::Expr(Box::new(Expr::Operation(
-                Box::new(Expr::Number(3)),
-                Operator::Add,
-                Box::new(Expr::Operation(
-                    Box::new(Expr::Number(5)),
-                    Operator::Mul,
-                    Box::new(Expr::Number(2)),
-                )),
-            ))),
-        ];
+        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Operation(
+            Box::new(Expr::Number(3)),
+            Operator::Add,
+            Box::new(Expr::Operation(
+                Box::new(Expr::Number(5)),
+                Operator::Mul,
+                Box::new(Expr::Number(2)),
+            )),
+        )))];
 
         // Act
         let syntax_tree = create_syntax_tree("3 + 5 * 2;");
@@ -78,19 +76,18 @@ mod tests {
     }
 
     #[test]
-    fn incorrect_expression_parse() { //Test if wrong input parses incorrectly
+    fn incorrect_expression_parse() {
+        //Test if wrong input parses incorrectly
         // Arrange
-        let expected_syntax_tree = vec![
-            Statement::Expr(Box::new(Expr::Operation(
-                Box::new(Expr::Number(3)),
-                Operator::Add,
-                Box::new(Expr::Operation(
-                    Box::new(Expr::Number(5)),
-                    Operator::Add, //Incorrect operator for the test
-                    Box::new(Expr::Number(2)),
-                )),
-            ))),
-        ];
+        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Operation(
+            Box::new(Expr::Number(3)),
+            Operator::Add,
+            Box::new(Expr::Operation(
+                Box::new(Expr::Number(5)),
+                Operator::Add, //Incorrect operator for the test
+                Box::new(Expr::Number(2)),
+            )),
+        )))];
 
         // Act
         let syntax_tree = create_syntax_tree("3 + 5 * 2;");
@@ -100,15 +97,12 @@ mod tests {
     }
 
     #[test]
-    fn comments_and_witespace_ignored() { //Test if comments and whitespace are ignored
+    fn comments_and_witespace_ignored() {
+        //Test if comments and whitespace are ignored
         // Arrange
         let expected_syntax_tree = vec![
-            Statement::Expr(Box::new(
-                Expr::Number(3)
-            )),
-            Statement::Expr(Box::new(
-                Expr::Number(2)
-            )),
+            Statement::Expr(Box::new(Expr::Number(3))),
+            Statement::Expr(Box::new(Expr::Number(2))),
         ];
 
         // Act

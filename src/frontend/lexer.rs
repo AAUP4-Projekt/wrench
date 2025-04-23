@@ -4,15 +4,14 @@ use logos::Logos;
 
 #[derive(Logos, Debug, PartialEq, Clone)]
 pub enum Token {
-
     //ignore whitespace
     #[regex(r"[ \t\n\f]+", logos::skip)]
     Whitespace,
-    
+
     //ignore oneline comments like this one
     #[regex(r"//[^\n]*", logos::skip)]
     Comment,
-    
+
     // Identifiers variables, or function names
     #[regex("[a-zA-Z_][a-zA-Z_]*", |lex| lex.slice().to_string())]
     Identifier(String),
@@ -154,7 +153,6 @@ pub enum Token {
 
     #[token("$")]
     Dollarsign,
-
     /*
     // Identifiers and numbers
     #[regex("[a-zA-Z_][a-zA-Z_]*", |lex| lex.slice().to_string())]
@@ -188,7 +186,7 @@ impl fmt::Display for Token {
             Token::LeftParen => write!(f, "("),
             Token::RightParen => write!(f, ")"),
             // If the token is an integer number, write its value
-            Token::IntegerNumber(n) => write!(f, "{}", n), 
+            Token::IntegerNumber(n) => write!(f, "{}", n),
             // For any other token, write "unknown token"
             _ => write!(f, "unknown token"),
         }

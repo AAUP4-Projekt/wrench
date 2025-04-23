@@ -9,9 +9,9 @@ pub enum Statement {
 
 #[derive(PartialEq, Debug)]
 pub enum Expr {
-    Number(i32), // Represents a number
-    Identifier(String), // Represents an identifier (variable name)
-    Bool(bool), // Represents a boolean value
+    Number(i32),                               // Represents a number
+    Identifier(String),                        // Represents an identifier (variable name)
+    Bool(bool),                                // Represents a boolean value
     Operation(Box<Expr>, Operator, Box<Expr>), // Represents an operation with left and right operands and an operator
 }
 
@@ -21,7 +21,7 @@ pub enum TypeConstruct {
     Bool,
     Int,
     Double,
-    String
+    String,
 }
 
 // Enum representing the different types of operations
@@ -32,4 +32,3 @@ pub enum Operator {
     Add, // addition (+)
     Sub, // subtraction (-)
 }
-

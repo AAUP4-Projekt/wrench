@@ -1,7 +1,7 @@
 use frontend::frontend::create_ast;
 
-mod frontend;
 mod backend;
+mod frontend;
 
 //#[cfg(not(test))]
 fn main() {
