@@ -25,7 +25,7 @@ pub fn create_syntax_tree(input: &str) -> Vec<Statement> {
 
     let parser = grammar::ProgramParser::new();
 
-    match parser.parse(tokens.into_iter()) {
+    match parser.parse(tokens) {
         Ok(program) => program,
         Err(e) => panic!("Parse error: {:?}", e),
     }

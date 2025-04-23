@@ -1,4 +1,4 @@
-use frontend::frontend::create_ast;
+use frontend::main::create_ast;
 
 mod backend;
 mod frontend;
