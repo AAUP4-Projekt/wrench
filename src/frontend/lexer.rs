@@ -10,14 +10,9 @@ pub enum Token {
     Whitespace,
     
     /*
-    //First things first
-    //Whitespace - Ignore whitespace. \t is tab, \n is newline \f is form feed
-    #[regex(r"[ \t\n\f]+", logos::skip)]
-    Whitespace,
-
     #[regex(r"//[^\n]*", logos::skip)] //ignore oneline comments like this one
     */
-
+    
     // Identifiers variables, or function names
     #[regex("[a-zA-Z_][a-zA-Z_]*", |lex| lex.slice().to_string())]
     Identifier(String),
@@ -57,8 +52,8 @@ pub enum Token {
     #[regex("[0-9]+", priority = 2, callback = parse_integer)] //Priority above identifiers
     Integer(i32),
 
-    #[regex(r"[0-9]+\.[0-9]+")]
-    Doubleliteral,
+    #[regex(r"[0-9]+\.[0-9]+", priority = 2, callback = parse_double)]
+    Doubleliteral(f64),
 
     //Keywords
     #[token("bool")]
@@ -171,6 +166,10 @@ pub enum Token {
 
 fn parse_integer(lex: &mut logos::Lexer<Token>) -> i32 {
     lex.slice().parse().unwrap_or(0)
+}
+
+fn parse_double(lex: &mut logos::Lexer<Token>) -> f64 {
+    lex.slice().parse().unwrap()
 }
 
 /*

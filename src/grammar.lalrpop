@@ -27,6 +27,8 @@ extern {
         ")" => Token::Closeparan,
         ";" => Token::Semicolon,
         "=" => Token::AssignmentOperator,
+        "true" => Token::True,
+        "false" => Token::False,
         "bool" => Token::Boolean,
         "int" => Token::IntegerKeyword,
         "double" => Token::DoubleKeyword,
@@ -89,6 +91,9 @@ Term: Box<Expr> = {
     Number => Box::new(Expr::Number(<>)), 
     // An identifier
     Identifier => Box::new(Expr::Identifier(<>)),
+    //True and false
+    "true" => Box::new(Expr::Boolean(true)),
+    "false" => Box::new(Expr::Boolean(false)),
     // A parenthesized expression (e.g., (a + b)) is 
     "(" <Expr> ")"
 };
