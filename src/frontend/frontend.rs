@@ -1,15 +1,15 @@
 use lalrpop_util::lalrpop_mod;
 use logos::Logos;
+use super::ast::Statement;
 
 use super::lexer::Token;
 
 lalrpop_mod!(pub grammar);
 
-pub fn create_ast(input: &str) {
-
+pub fn create_syntax_tree(input: &str) -> Vec<Statement> {
     //Lex
     let lexer = Token::lexer(input);
-    
+
     //Collect tokens
     let tokens: Vec<_> = lexer
         .spanned()
@@ -25,14 +25,93 @@ pub fn create_ast(input: &str) {
     let parser = grammar::ProgramParser::new();
 
     match parser.parse(tokens.into_iter()) {
-        Ok(program) => {
-            for statement in program{
-                println!("Parse tree: {:#?}", statement.to_raw());
-            }
-        }
-        Err(e) => {
-            eprintln!("Parse error: {:?}", e);
-        }
+        Ok(program) => program,
+        Err(e) => panic!("Parse error: {:?}", e),
     }
-    
+}
+
+fn print_syntax_tree(syntax_tree: &[Statement]) {
+    for (i, statement) in syntax_tree.iter().enumerate() {
+        println!("Statement {}: {:?}", i + 1, statement);
+    }
+}
+
+pub fn create_ast(input: &str) {
+    // Create a syntax tree from the input string
+    let syntax_tree = create_syntax_tree(input);
+    print_syntax_tree(&syntax_tree);
+    // TODO: Type check and return the AST
+}
+
+
+/*
+    Unit Tests
+*/
+#[cfg(test)]
+mod tests {
+    use super::*; // Import the module being tested
+    use super::super::ast::{Expr, Opcode, Statement}; // Import the AST types
+
+    #[test]
+    fn correct_expression_parse() {
+        // Arrange
+        let expected_syntax_tree = vec![
+            Statement::Expr(Box::new(Expr::Op(
+                Box::new(Expr::Number(3)),
+                Opcode::Add,
+                Box::new(Expr::Op(
+                    Box::new(Expr::Number(5)),
+                    Opcode::Mul,
+                    Box::new(Expr::Number(2)),
+                )),
+            ))),
+        ];
+
+        // Act
+        let syntax_tree = create_syntax_tree("3 + 5 * 2;");
+
+        //Assert
+        assert_eq!(syntax_tree, expected_syntax_tree);
+    }
+
+    #[test]
+    fn incorrect_expression_parse() {
+        // Arrange
+        let expected_syntax_tree = vec![
+            Statement::Expr(Box::new(Expr::Op(
+                Box::new(Expr::Number(3)),
+                Opcode::Add,
+                Box::new(Expr::Op(
+                    Box::new(Expr::Number(5)),
+                    Opcode::Add, //Incorrect operator for the test
+                    Box::new(Expr::Number(2)),
+                )),
+            ))),
+        ];
+
+        // Act
+        let syntax_tree = create_syntax_tree("3 + 5 * 2;");
+
+        //Assert
+        assert_ne!(syntax_tree, expected_syntax_tree);
+    }
+
+    #[test]
+    fn comments_and_witespace_ignored() {
+        // Arrange
+        let expected_syntax_tree = vec![
+            Statement::Expr(Box::new(
+                Expr::Number(3)
+            )),
+            Statement::Expr(Box::new(
+                Expr::Number(2)
+            )),
+        ];
+
+        // Act
+        let syntax_tree = create_syntax_tree("3;      //Comment ag \n2;");
+
+        //Assert
+        assert_eq!(syntax_tree, expected_syntax_tree);
+    }
 }
