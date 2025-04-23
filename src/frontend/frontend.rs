@@ -50,18 +50,18 @@ pub fn create_ast(input: &str) {
 #[cfg(test)]
 mod tests {
     use super::*; // Import the module being tested
-    use super::super::ast::{Expr, Opcode, Statement}; // Import the AST types
+    use super::super::ast::{Expr, Operator, Statement}; // Import the AST types
 
     #[test]
     fn correct_expression_parse() {
         // Arrange
         let expected_syntax_tree = vec![
-            Statement::Expr(Box::new(Expr::Op(
+            Statement::Expr(Box::new(Expr::Operation(
                 Box::new(Expr::Number(3)),
-                Opcode::Add,
-                Box::new(Expr::Op(
+                Operator::Add,
+                Box::new(Expr::Operation(
                     Box::new(Expr::Number(5)),
-                    Opcode::Mul,
+                    Operator::Mul,
                     Box::new(Expr::Number(2)),
                 )),
             ))),
@@ -78,12 +78,12 @@ mod tests {
     fn incorrect_expression_parse() {
         // Arrange
         let expected_syntax_tree = vec![
-            Statement::Expr(Box::new(Expr::Op(
+            Statement::Expr(Box::new(Expr::Operation(
                 Box::new(Expr::Number(3)),
-                Opcode::Add,
-                Box::new(Expr::Op(
+                Operator::Add,
+                Box::new(Expr::Operation(
                     Box::new(Expr::Number(5)),
-                    Opcode::Add, //Incorrect operator for the test
+                    Operator::Add, //Incorrect operator for the test
                     Box::new(Expr::Number(2)),
                 )),
             ))),

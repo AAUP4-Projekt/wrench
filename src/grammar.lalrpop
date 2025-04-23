@@ -1,5 +1,5 @@
 use crate::frontend::ast::Expr;
-use crate::frontend::ast::Opcode;
+use crate::frontend::ast::Operator;
 use crate::frontend::ast::Statement;
 use crate::frontend::ast::TypeConstruct;
 use crate::frontend::lexer::Token;
@@ -62,29 +62,29 @@ pub Type: TypeConstruct = {
 // and defines the structure of valid expressions.
 pub Expr: Box<Expr> = {
     // Match an expression with an operator and a factor (e.g., a + b)
-    Expr ExprOp Factor => Box::new(Expr::Op(<>)),
+    Expr ExprOp Factor => Box::new(Expr::Operation(<>)),
     // OR just a factor (e.g., a)
     Factor,
 };
 
 //ExprOp is used to define the operators that can be used between expressions
-ExprOp: Opcode = {
-    "+" => Opcode::Add,
-    "-" => Opcode::Sub,
+ExprOp: Operator = {
+    "+" => Operator::Add,
+    "-" => Operator::Sub,
 };
 
 // Factor rule handles the multiplication and division operations
 Factor: Box<Expr> = {
     // Match a factor with an operator and a term (e.g., a * b)
-    Factor FactorOp Term => Box::new(Expr::Op(<>)),
+    Factor FactorOp Term => Box::new(Expr::Operation(<>)),
     // Or just a term (e.g., a)
     Term,
 };
 
 // FactorOp defines the operators that can be used between factors
-FactorOp: Opcode = {
-    "*" => Opcode::Mul,
-    "/" => Opcode::Div,
+FactorOp: Operator = {
+    "*" => Operator::Mul,
+    "/" => Operator::Div,
 };
 
 // Term represents the basic building blocks of expressions, such as numbers and parenthesized expressions

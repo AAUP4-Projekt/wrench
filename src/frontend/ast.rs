@@ -12,11 +12,11 @@ pub enum Expr {
     Number(i32), // Represents a number
     Identifier(String), // Represents an identifier (variable name)
     Bool(bool), // Represents a boolean value
-    Op(Box<Expr>, Opcode, Box<Expr>), // Represents an operation with left and right operands and an operator
+    Operation(Box<Expr>, Operator, Box<Expr>), // Represents an operation with left and right operands and an operator
 }
 
 // Enum representing types
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(PartialEq, Debug)]
 pub enum TypeConstruct {
     Bool,
     Int,
@@ -25,8 +25,8 @@ pub enum TypeConstruct {
 }
 
 // Enum representing the different types of operations
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub enum Opcode {
+#[derive(PartialEq, Debug)]
+pub enum Operator {
     Mul, // multiplication (*)
     Div, // division (/)
     Add, // addition (+)
