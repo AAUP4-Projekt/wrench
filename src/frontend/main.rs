@@ -113,7 +113,7 @@ mod tests {
     }
 
     #[test]
-    fn exponent_right_to_left_associativity(){
+    fn exponent_right_to_left_associativity() {
         //Test if exponentiation is right associative
         // Arrange
         let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Operation(
@@ -134,18 +134,17 @@ mod tests {
     }
 
     #[test]
-    fn addition_left_to_right_associativity(){
+    fn addition_left_to_right_associativity() {
         //Test if addition is left associative
         // Arrange
-        let expected_syntax_tree = vec![Statement::Expr(
+        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Operation(
             Box::new(Expr::Operation(
-                Box::new(Expr::Operation(
-                    Box::new(Expr::Number(3)),
-                    Operator::Add,
-                    Box::new(Expr::Number(5)),
-                )),
+                Box::new(Expr::Number(3)),
                 Operator::Add,
-                Box::new(Expr::Number(2)),
+                Box::new(Expr::Number(5)),
+            )),
+            Operator::Add,
+            Box::new(Expr::Number(2)),
         )))];
 
         // Act
@@ -156,7 +155,7 @@ mod tests {
     }
 
     #[test]
-    fn parenteses_have_high_presedence(){
+    fn parenteses_have_high_presedence() {
         //Test if parentheses have higher precedence than multiplication
         // Arrange
         let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Operation(
@@ -175,5 +174,4 @@ mod tests {
         //Assert
         assert_eq!(syntax_tree, expected_syntax_tree);
     }
-
 }
