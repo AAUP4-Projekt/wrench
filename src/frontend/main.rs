@@ -4,7 +4,7 @@ use logos::Logos;
 
 use super::lexer::Token;
 
-lalrpop_mod!(pub grammar);
+lalrpop_mod!(#[allow(clippy::all)] pub grammar);
 
 //Lex tokens from input and parse them into a syntax tree
 pub fn create_syntax_tree(input: &str) -> Vec<Statement> {
@@ -51,7 +51,7 @@ pub fn create_ast(input: &str) {
 */
 #[cfg(test)]
 mod tests {
-    use super::super::ast::{Expr, Operator, Statement};
+    use super::super::ast::{Declaration, Expr, Misc, Operator, Statement, TypeConstruct};
     use super::*; // Import the module being tested // Import the AST types
 
     #[test]
@@ -172,6 +172,45 @@ mod tests {
         let syntax_tree = create_syntax_tree("(3 + 5) * 2;");
 
         //Assert
+        assert_eq!(syntax_tree, expected_syntax_tree);
+    }
+
+    #[test]
+    fn parses_empty_functions() {
+        //Test if empty functions are parsed correctly
+        // Arrange
+        let expected_syntax_tree = vec![Statement::Declaration(Declaration::FunctionDeclaration(
+            TypeConstruct::Int,
+            "b".to_string(),
+            vec![],
+            vec![],
+        ))];
+
+        // Act
+        let syntax_tree = create_syntax_tree("fn int b(){};");
+
+        //Assert
+        assert_eq!(syntax_tree, expected_syntax_tree);
+    }
+
+    #[test]
+    fn parses_function_with_parameters_and_body() {
+        //Test if functions with parameters are parsed correctly
+        // Arrange
+        let expected_syntax_tree = vec![Statement::Declaration(Declaration::FunctionDeclaration(
+            TypeConstruct::Int,
+            "b".to_string(),
+            vec![Misc::Parameter(TypeConstruct::Int, "x".to_string())],
+            vec![Statement::VariableAssignment(
+                "x".to_string(),
+                Box::new(Expr::Number(3)),
+            )],
+        ))];
+
+        // Act
+        let syntax_tree = create_syntax_tree("fn int b(int x){x = 3;};");
+
+        // Assert
         assert_eq!(syntax_tree, expected_syntax_tree);
     }
 }

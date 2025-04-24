@@ -2,7 +2,11 @@ use crate::frontend::ast::Expr;
 use crate::frontend::ast::Operator;
 use crate::frontend::ast::Statement;
 use crate::frontend::ast::TypeConstruct;
+use crate::frontend::ast::Declaration;
+use crate::frontend::ast::Misc;
 use crate::frontend::lexer::Token;
+
+
 
 // This beings the grammer definition used by lalrpop
 grammar;
@@ -12,25 +16,67 @@ extern {
     // Type used to track token positions
     type Location = usize;
 
-    // Mapping lexer tokens to the grammar's internal Token enum
+    // Mapping lexer tokens to the grammar's internal Token enum, so they can be used in grammar
     enum Token {
-        Integer => Token::Integer(<i32>),
-        Identifier => Token::Identifier(<String>),
+
+        // Character operators
         "+" => Token::Plus,
         "-" => Token::Minus,
         "*" => Token::Star,
         "**" => Token::Expon,
-        "(" => Token::Openparan,
-        ")" => Token::Closeparan,
-        ";" => Token::Semicolon,
-        "=" => Token::AssignmentOperator,
+        "/" => Token::Slash,
+        "!" => Token::ExclamationMark,
+        "%" => Token::Modulo,
+        "==" => Token::EqualsOperator,
+
+        // Values
+        Stringliteral => Token::Stringliteral(<String>),
+        DoubleLiteral => Token::Doubleliteral(<f64>),
+        Integer => Token::Integer(<i32>),
         "true" => Token::True,
         "false" => Token::False,
+
+        // Identifier
+        Identifier => Token::Identifier(<String>),
+
+        // Reserved keywords
+        "skip" => Token::Skip,
+        "while" => Token::While,
+        "if" => Token::If,
+        "else" => Token::Else,
+        "var" => Token::Var,
+        "const" => Token::Constant,
+        "fn" => Token::Function,
+        "return" => Token::Return,
+        "for" => Token::For,
+        "rpipe" => Token::Rpipe,
+        "pipe" => Token::Pipe,
+        "row" => Token::Row,
+        "table" => Token::Table,
+        "and" => Token::LogicalAnd,
+        "or" => Token::LogicalOr,
+
+        // Types
         "bool" => Token::Boolean,
         "int" => Token::IntegerKeyword,
         "double" => Token::DoubleKeyword,
         "string" => Token::String,
-        "var" => Token::Var,
+        "null" => Token::Null,
+
+        // Special chars
+        ";" => Token::Semicolon,
+        "," => Token::Comma,
+        "(" => Token::Openparan,
+        ")" => Token::Closeparan,
+        "{" => Token::Opencurlybracket,
+        "}" => Token::Closecurlybracket,
+        "[" => Token::Opensquarebracket,
+        "]" => Token::Closesquarebracket,
+        "<" => Token::LeftAngle,
+        ">" => Token::RightAngle,
+        "?" => Token::QuestionMark,
+        "$" => Token::Dollarsign,
+        "=" => Token::AssignmentOperator,
     }
 }
 
@@ -39,21 +85,45 @@ pub Program: Vec<Statement> = {
     <s:Stmt +> => s,
 };
 
-pub Stmt: Statement = {
+Stmt: Statement = {
     // Match a statement that consists of an expression followed by a semicolon
     <e:Expr> ";" => Statement::Expr(e),
-    // Match variable declartions e.g. var int x = 5;
-    "var" <t:Type> <i:Identifier> "=" <e:Expr> ";" => Statement::VariableDeclaration(t, i, e), // Variable declaration E.g. var int x = 5;
-    // Match variable assignment e.g. x = 5;
+    <e:Decl> ";" => Statement::Declaration(e), // Match a declaration followed by a semicolon
     <i:Identifier> "=" <e:Expr> ";" => Statement::VariableAssignment(i, e), // Variable assignment E.g. x = 5;
 };
 
-pub Type: TypeConstruct = {
+Decl: Declaration = {
+    // Match variable declartions e.g. var int x = 5;
+    "var" <t:Type> <i:Identifier> "=" <e:Expr> => Declaration::VariableDeclaration(t, i, e), // Variable declaration E.g. var int x = 5;
+    // Match function declarations e.g. fn int add(int a, int b) { return a + b; }
+    "fn" <t:Type> <i:Identifier> "(" <p:Params> ")" "{" <s:Stmt *> "}" => Declaration::FunctionDeclaration(t, i, p, s), // Function declaration E.g. fn int add(int a, int b) { return a + b; }
+}
+
+
+Params: Vec<Misc> = {
+    // Match zero or more parameter declarations separated by commas
+    <p:(Param ("," Param)*)?> => {
+        p.map(|(first, rest)| {
+            let mut params = vec![first];
+            params.extend(rest.into_iter().map(|(_, param)| param));
+            params
+        }).unwrap_or_else(Vec::new)
+    }
+};
+
+Param: Misc = {
+    // Match a single parameter declaration
+    <t:Type> <i:Identifier> => Misc::Parameter(t, i),
+};
+
+
+Type: TypeConstruct = {
     // Match the type keywords and map them to the corresponding enum variants
     "bool" => TypeConstruct::Bool,
     "int" => TypeConstruct::Int,
     "double" => TypeConstruct::Double,
     "string" => TypeConstruct::String,
+    "null" => TypeConstruct::Null,
 };
 
 // Entry rule for expressions: This is the starting point of the grammar

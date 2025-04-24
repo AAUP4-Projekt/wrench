@@ -82,6 +82,9 @@ pub enum Token {
     #[token("fn")]
     Function,
 
+    #[token("return")]
+    Return,
+
     #[token("var")]
     Var,
 
@@ -109,9 +112,12 @@ pub enum Token {
     #[token("skip")] //equals to "pass" in python
     Skip,
 
+    #[token("for")]
+    For,
+
     //Literals
-    #[regex(r#""([^"\\]|\\.)*""#)]
-    Stringliteral,
+    #[regex(r#""([^"\\]|\\.)*""#, |lex| lex.slice().to_string())]
+    Stringliteral(String),
 
     //Punctuators
     #[token(";")]
@@ -153,13 +159,6 @@ pub enum Token {
 
     #[token("$")]
     Dollarsign,
-    /*
-    // Identifiers and numbers
-    #[regex("[a-zA-Z_][a-zA-Z_]*", |lex| lex.slice().to_string())]
-    Identifier(String),
-    #[regex(r"-?([0-9]+)", priority = 2, callback = parse_integer)]
-    IntegerNumber(i32),
-    */
 }
 
 fn parse_integer(lex: &mut logos::Lexer<Token>) -> i32 {
@@ -169,38 +168,3 @@ fn parse_integer(lex: &mut logos::Lexer<Token>) -> i32 {
 fn parse_double(lex: &mut logos::Lexer<Token>) -> f64 {
     lex.slice().parse().unwrap()
 }
-
-/*
-// Implementing the Display trait for Token
-// This allows us to print Token values using {} (e.g., println!("{}", token))
-impl fmt::Display for Token {
-    // The fmt method defines how to format the Token
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Match the current variant of the Token enum
-        match self {
-            // If the token is Plus, write "+"
-            Token::Plus => write!(f, "+"),
-            Token::Minus => write!(f, "-"),
-            Token::Star => write!(f, "*"),
-            Token::Slash => write!(f, "/"),
-            Token::LeftParen => write!(f, "("),
-            Token::RightParen => write!(f, ")"),
-            // If the token is an integer number, write its value
-            Token::IntegerNumber(n) => write!(f, "{}", n),
-            // For any other token, write "unknown token"
-            _ => write!(f, "unknown token"),
-        }
-    }
-}
-*/
-
-/*
-
-pub fn print_tokens(tokens: &[(usize, Token, usize)]) {
-    print!("Tokens: ");
-    for (_, token, _) in tokens {
-        print!("{:?} ", token);
-    }
-    println!();
-}
-*/

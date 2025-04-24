@@ -2,9 +2,20 @@ use std::fmt::Debug;
 
 #[derive(PartialEq, Debug)]
 pub enum Statement {
-    Expr(Box<Expr>), // Represents an expression statement
-    VariableDeclaration(TypeConstruct, String, Box<Expr>), // Represents a variable declaration with its type, name, and assigned value
+    Expr(Box<Expr>),                       // Represents an expression statement
     VariableAssignment(String, Box<Expr>), // Represents a variable assignment with its name and value
+    Declaration(Declaration),              // Represents a declaration
+}
+
+#[derive(PartialEq, Debug)]
+pub enum Declaration {
+    VariableDeclaration(TypeConstruct, String, Box<Expr>), // Represents a variable declaration with its type, name, and assigned value
+    FunctionDeclaration(TypeConstruct, String, Vec<Misc>, Vec<Statement>), // Represents a function declaration with its return type, name, parameters, and body
+}
+
+#[derive(PartialEq, Debug)]
+pub enum Misc {
+    Parameter(TypeConstruct, String), // Represents a parameter with its type and name
 }
 
 #[derive(PartialEq, Debug)]
@@ -22,6 +33,7 @@ pub enum TypeConstruct {
     Int,
     Double,
     String,
+    Null,
 }
 
 // Enum representing the different types of operations
