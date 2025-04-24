@@ -30,6 +30,7 @@ extern {
         "int" => Token::IntegerKeyword,
         "double" => Token::DoubleKeyword,
         "string" => Token::String,
+        "var" => Token::Var,
     }
 }
 
@@ -41,10 +42,10 @@ pub Program: Vec<Statement> = {
 pub Stmt: Statement = {
     // Match a statement that consists of an expression followed by a semicolon
     <e:Expr> ";" => Statement::Expr(e),
-    <t:Type ?> <x:Identifier> "=" <e:Expr> ";" => match t {
-        Some(t) => Statement::VariableDeclaration(t, x, e), //Variable declaration E.g. int x = 5;
-        None => Statement::VariableAssignment(x, e) //Variable assignment E.g. x = 5;
-    }
+    // Match variable declartions e.g. var int x = 5;
+    "var" <t:Type> <i:Identifier> "=" <e:Expr> ";" => Statement::VariableDeclaration(t, i, e), // Variable declaration E.g. var int x = 5;
+    // Match variable assignment e.g. x = 5;
+    <i:Identifier> "=" <e:Expr> ";" => Statement::VariableAssignment(i, e), // Variable assignment E.g. x = 5;
 };
 
 pub Type: TypeConstruct = {
