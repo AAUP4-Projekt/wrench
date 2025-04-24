@@ -28,7 +28,7 @@ pub enum TypeConstruct {
 #[derive(PartialEq, Debug)]
 pub enum Operator {
     Mul, // multiplication (*)
-    Div, // division (/)
+    Exp, // exponent (**)
     Add, // addition (+)
     Sub, // subtraction (-)
 }
