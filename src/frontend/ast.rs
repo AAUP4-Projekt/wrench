@@ -16,7 +16,7 @@ pub enum Expr {
 }
 
 // Enum representing types
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum TypeConstruct {
     Bool,
     Int,

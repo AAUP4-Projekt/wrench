@@ -3,6 +3,7 @@ use lalrpop_util::lalrpop_mod;
 use logos::Logos;
 
 use super::lexer::Token;
+use super::typecheck::type_check;
 
 lalrpop_mod!(pub grammar);
 
@@ -40,10 +41,20 @@ fn print_syntax_tree(syntax_tree: &[Statement]) {
 
 //Create the AST from the input string
 pub fn create_ast(input: &str) {
-    // Create a syntax tree from the input string
+    // Opret syntakstræ fra input
     let syntax_tree = create_syntax_tree(input);
     print_syntax_tree(&syntax_tree);
-    // TODO: Type check and return the AST
+
+    // Udfør type checking
+    match type_check(&syntax_tree) {
+        Ok(_) => println!("Type checking passed!"),
+        Err(e) => {
+            eprintln!("Type checking failed: {}", e);
+            return; // Stop execution if type checking fails
+        }
+    }
+
+    // TODO: Returner eller brug AST'en efter type checking
 }
 
 /*
