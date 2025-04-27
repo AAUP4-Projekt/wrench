@@ -47,7 +47,7 @@ pub fn create_ast(input: &str) {
 }
 
 /*
-    Unit Tests
+    Unit Tests for parser
 */
 #[cfg(test)]
 mod tests {
