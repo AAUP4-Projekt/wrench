@@ -14,12 +14,12 @@ extern {
 
     // Mapping lexer tokens to the grammar's internal Token enum
     enum Token {
-        Number => Token::Integer(<i32>),
+        Integer => Token::Integer(<i32>),
         Identifier => Token::Identifier(<String>),
         "+" => Token::Plus,
         "-" => Token::Minus,
         "*" => Token::Star,
-        "/" => Token::Slash,
+        "**" => Token::Expon,
         "(" => Token::Openparan,
         ")" => Token::Closeparan,
         ";" => Token::Semicolon,
@@ -30,6 +30,7 @@ extern {
         "int" => Token::IntegerKeyword,
         "double" => Token::DoubleKeyword,
         "string" => Token::String,
+        "var" => Token::Var,
     }
 }
 
@@ -41,10 +42,10 @@ pub Program: Vec<Statement> = {
 pub Stmt: Statement = {
     // Match a statement that consists of an expression followed by a semicolon
     <e:Expr> ";" => Statement::Expr(e),
-    <t:Type ?> <x:Identifier> "=" <e:Expr> ";" => match t {
-        Some(t) => Statement::VariableDeclaration(t, x, e), //Variable declaration E.g. int x = 5;
-        None => Statement::VariableAssignment(x, e) //Variable assignment E.g. x = 5;
-    }
+    // Match variable declartions e.g. var int x = 5;
+    "var" <t:Type> <i:Identifier> "=" <e:Expr> ";" => Statement::VariableDeclaration(t, i, e), // Variable declaration E.g. var int x = 5;
+    // Match variable assignment e.g. x = 5;
+    <i:Identifier> "=" <e:Expr> ";" => Statement::VariableAssignment(i, e), // Variable assignment E.g. x = 5;
 };
 
 pub Type: TypeConstruct = {
@@ -57,37 +58,33 @@ pub Type: TypeConstruct = {
 
 // Entry rule for expressions: This is the starting point of the grammar
 // and defines the structure of valid expressions.
-pub Expr: Box<Expr> = {
-    // Match an expression with an operator and a factor (e.g., a + b)
-    Expr ExprOp Factor => Box::new(Expr::Operation(<>)),
+Expr: Box<Expr> = {
+    // Match + or - expressions left-to-right associativity
+    <e:Expr> "+" <f:MulExpr> => Box::new(Expr::Operation(e, Operator::Add, f)),
+    <e:Expr> "-" <f:MulExpr> => Box::new(Expr::Operation(e, Operator::Sub, f)),
     // OR just a factor (e.g., a)
-    Factor,
-};
-
-//ExprOp is used to define the operators that can be used between expressions
-ExprOp: Operator = {
-    "+" => Operator::Add,
-    "-" => Operator::Sub,
+    MulExpr,
 };
 
 // Factor rule handles the multiplication and division operations
-Factor: Box<Expr> = {
-    // Match a factor with an operator and a term (e.g., a * b)
-    Factor FactorOp Term => Box::new(Expr::Operation(<>)),
+MulExpr: Box<Expr> = {
+    // Match * expression left-to-right associativity
+    <e:MulExpr> "*" <f:ExpoExpr> => Box::new(Expr::Operation(e, Operator::Mul, f)),
     // Or just a term (e.g., a)
-    Term,
+    ExpoExpr,
 };
 
-// FactorOp defines the operators that can be used between factors
-FactorOp: Operator = {
-    "*" => Operator::Mul,
-    "/" => Operator::Div,
+ExpoExpr: Box<Expr> = {
+    // Match ** expression right-to-left associativity
+    <e:TermExpr> "**" <f:ExpoExpr> => Box::new(Expr::Operation(e, Operator::Exp, f)),
+    // Or just a term (e.g., a)
+    TermExpr,
 };
 
 // Term represents the basic building blocks of expressions, such as numbers and parenthesized expressions
-Term: Box<Expr> = {
+TermExpr: Box<Expr> = {
     // A literal number (e.g., 42) becomes Expr::Number(i32)
-    Number => Box::new(Expr::Number(<>)), 
+    Integer => Box::new(Expr::Number(<>)), 
     // An identifier
     Identifier => Box::new(Expr::Identifier(<>)),
     //True and false

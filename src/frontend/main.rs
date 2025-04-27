@@ -122,4 +122,67 @@ mod tests {
         //Assert
         assert_eq!(syntax_tree, expected_syntax_tree);
     }
+
+    #[test]
+    fn exponent_right_to_left_associativity() {
+        //Test if exponentiation is right associative
+        // Arrange
+        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Operation(
+            Box::new(Expr::Number(3)),
+            Operator::Exp,
+            Box::new(Expr::Operation(
+                Box::new(Expr::Number(2)),
+                Operator::Exp,
+                Box::new(Expr::Number(1)),
+            )),
+        )))];
+
+        // Act
+        let syntax_tree = create_syntax_tree("3 ** 2 ** 1;");
+
+        //Assert
+        assert_eq!(syntax_tree, expected_syntax_tree);
+    }
+
+    #[test]
+    fn addition_left_to_right_associativity() {
+        //Test if addition is left associative
+        // Arrange
+        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Operation(
+            Box::new(Expr::Operation(
+                Box::new(Expr::Number(3)),
+                Operator::Add,
+                Box::new(Expr::Number(5)),
+            )),
+            Operator::Add,
+            Box::new(Expr::Number(2)),
+        )))];
+
+        // Act
+        let syntax_tree = create_syntax_tree("3 + 5 + 2;");
+
+        //Assert
+        assert_eq!(syntax_tree, expected_syntax_tree);
+    }
+
+    #[test]
+    fn parenteses_have_high_presedence() {
+        //Test if parentheses have higher precedence than multiplication
+        // Arrange
+        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Operation(
+            Box::new(Expr::Operation(
+                Box::new(Expr::Number(3)),
+                Operator::Add,
+                Box::new(Expr::Number(5)),
+            )),
+            Operator::Mul,
+            Box::new(Expr::Number(2)),
+        )))];
+
+        // Act
+        let syntax_tree = create_syntax_tree("(3 + 5) * 2;");
+
+        //Assert
+        assert_eq!(syntax_tree, expected_syntax_tree);
+    }
 }
