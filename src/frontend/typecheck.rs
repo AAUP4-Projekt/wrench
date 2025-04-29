@@ -1,94 +1,197 @@
 // Import HashMap to keep track of variable types and their types
 use std::collections::HashMap;
 // Import the AST types
-use super::ast::{Expr, Statement, TypeConstruct};
+use super::ast::{Expr, Operator, Statement, TypeConstruct, TypedExpr};
 
 // This function checks the types of a list of statements
-pub fn type_check(statements: &[Statement]) -> Result<(), String> {
-    // Create a symbol table to keep track of variable types
-    // The symbol table is a HashMap that maps variable names to their types
+pub fn type_check(statements: &[Statement]) -> Result<Vec<Statement>, String> {
+    // This symbol table keeps track of each variable's name and its type
     let mut symbol_table: HashMap<String, TypeConstruct> = HashMap::new();
+    // This will hold the new, type-annotated version of each statement
+    let mut typed_statements = Vec::new();
 
-    // Go through each statement in the list of statements
+    // Go through each statement in the list
     for statement in statements {
         match statement {
-            // Handle variable declarations
+
+            // Case 1: Variable declaration
             Statement::VariableDeclaration(var_type, name, expr) => {
-                // Infer the type of the expression on the right side of the assignment
-                let expr_type = infer_type(expr, &symbol_table)?;
-                // Check if the declared type matches the actual type
-                if *var_type != expr_type {
-                    // If they don't match, return an error message
-                    // The error message includes the expected type, found type, and variable name
+                // Try to figure out the type of the expression
+                let typed_expr = infer_type(&expr.expr, &symbol_table)?;
+                // If the declared type doesn't match the inferred type, return an error
+                if *var_type != typed_expr.expr_type {
                     return Err(format!(
                         "Type mismatch: expected {:?}, found {:?} for variable '{}'",
-                        var_type, expr_type, name
+                        var_type, typed_expr.expr_type, name
                     ));
                 }
-                // Add the variable to the symbol table with its type
+                // Save the variable's type in the symbol table
                 symbol_table.insert(name.clone(), var_type.clone());
+                 // Add the type-annotated declaration to the result list
+                typed_statements.push(Statement::VariableDeclaration(
+                    var_type.clone(),
+                    name.clone(),
+                    Box::new(typed_expr),
+                ));
             }
-            // Handle variable assignments
+
+            // Case 2: Variable assignment
             Statement::VariableAssignment(name, expr) => {
-                // Make sure the variable was declared before
+                // Check if the variable was declared
                 if let Some(var_type) = symbol_table.get(name) {
-                    // Infer the type of the new value
-                    let expr_type = infer_type(expr, &symbol_table)?;
-                    // Check if the new value matches the variable's type
-                    if *var_type != expr_type {
+                    // Infer the type of the expression on the right-hand side
+                    let typed_expr = infer_type(&expr.expr, &symbol_table)?;
+                    // Check if the types match
+                    if *var_type != typed_expr.expr_type {
                         return Err(format!(
                             "Type mismatch: expected {:?}, found {:?} for variable '{}'",
-                            var_type, expr_type, name
+                            var_type, typed_expr.expr_type, name
                         ));
                     }
+                    // Add the type-annotated assignment to the result list
+                    typed_statements.push(Statement::VariableAssignment(
+                        name.clone(),
+                        Box::new(typed_expr),
+                    ));
                 } else {
-                    // If the variable was not declared, return an error message
-                    // The error message includes the variable name
+                    // If the variable doesn't exist, return an error
                     return Err(format!("Undefined variable '{}'", name));
                 }
             }
-            // Handle standalone expressions (e.g, function calls)
+            // Case 3: Expression statement (e.g., just a function call or value on its own)
             Statement::Expr(expr) => {
-                // Just infer the type to make sure the expression is valid
-                infer_type(expr, &symbol_table)?;
+                let typed_expr = infer_type(&expr.expr, &symbol_table)?;
+                typed_statements.push(Statement::Expr(Box::new(typed_expr)));
             }
         }
     }
 
-    // If all statements are fine, return success
-    Ok(())
+    // If everything was OK, return the new list of type-annotated statements
+    Ok(typed_statements)
 }
 
 
 // This function figures out the type of an expression
-fn infer_type(expr: &Expr, symbol_table: &HashMap<String, TypeConstruct>) -> Result<TypeConstruct, String> {
+fn infer_type(expr: &Expr, symbol_table: &HashMap<String, TypeConstruct>) -> Result<TypedExpr, String> {
     match expr {
-        // Numbers are always integers
-        Expr::Number(_) => Ok(TypeConstruct::Int),
-        // Booleans are always booleans
-        Expr::Bool(_) => Ok(TypeConstruct::Bool),
-        // For identifiers (variables), look up their type in the symbol table
+        // Case: Integer literal (e.g., `5`)
+        Expr::Number(value) => Ok(TypedExpr {
+            expr: Expr::Number(*value),
+            expr_type: TypeConstruct::Int,
+        }),
+        // Case: Boolean literal (e.g., `true`)
+        Expr::Bool(value) => Ok(TypedExpr {
+            expr: Expr::Bool(*value),
+            expr_type: TypeConstruct::Bool,
+        }),
+         // Case: Floating-point number (e.g., `3.14`)
+        Expr::Double(value) => Ok(TypedExpr {
+            expr: Expr::Double(*value),
+            expr_type: TypeConstruct::Double,
+        }),
+        // Case: String literal (e.g., `"hello"`)
+        Expr::String(value) => Ok(TypedExpr {
+            expr: Expr::String(value.clone()),
+            expr_type: TypeConstruct::String,
+        }),
+        // Case: Variable reference (e.g., `x`)
         Expr::Identifier(name) => {
-            symbol_table.get(name).cloned().ok_or_else(|| format!("Undefined variable '{}'", name))
+            let expr_type = symbol_table
+                .get(name)
+                .cloned()
+                .ok_or_else(|| format!("Undefined variable '{}'", name))?;
+            Ok(TypedExpr {
+                expr: Expr::Identifier(name.clone()),
+                expr_type,
+            })
         }
-        // For operations like addition or multiplication, check the types of the left and right operands
-        // and make sure they match
-        Expr::Operation(left, operator, right) => {
-            // Infer the type of both the left and right expressions
-            let left_type = infer_type(left, symbol_table)?;
-            let right_type = infer_type(right, symbol_table)?;
-            // Make sure both sides of the operation are of the same type
-            if left_type != right_type {
+        // Case: Binary operation (e.g., `x + y`)
+        Expr::Operation(left, op, right) => {
+            let left_typed = infer_type(left, symbol_table)?;
+            let right_typed = infer_type(right, symbol_table)?;
+
+            // Make sure both sides have the same type todo: NEEDS TO BE CHANGED
+            if left_typed.expr_type != right_typed.expr_type {
                 return Err(format!(
                     "Type mismatch in operation: left is {:?}, right is {:?}",
-                    left_type, right_type
+                    left_typed.expr_type, right_typed.expr_type
                 ));
             }
-            // Allow operations only if the types are integers
-            match operator {
-                _ if left_type == TypeConstruct::Int => Ok(TypeConstruct::Int),
-                _ => Err(format!("Unsupported operator for type {:?}", left_type)),
+
+            // Only allow arithmetic operations on Int or Double
+            match op {
+                Operator::Add | Operator::Sub | Operator::Mul | Operator::Div | Operator::Exp => {
+                    if left_typed.expr_type == TypeConstruct::Int || left_typed.expr_type == TypeConstruct::Double {
+                        Ok(TypedExpr {
+                            expr: Expr::Operation(Box::new(left_typed), *op, Box::new(right_typed)),
+                            expr_type: left_typed.expr_type,
+                        })
+                    } else {
+                        Err(format!("Invalid operation for type {:?}", left_typed.expr_type))
+                    }
+                }
+                _ => Err("Unsupported operator".to_string()),
             }
         }
+
+        // Case: Logical NOT (e.g., `!true`)
+        Expr::Not(inner) => {
+            let inner_typed = infer_type(inner, symbol_table)?;
+            if inner_typed.expr_type == TypeConstruct::Bool {
+                Ok(TypedExpr {
+                    expr: Expr::Not(Box::new(inner_typed)),
+                    expr_type: TypeConstruct::Bool,
+                })
+            } else {
+                Err("Logical NOT requires a boolean".to_string())
+            }
+        }
+
+        // Case: Array (e.g., `[1, 2, 3]`)
+        Expr::Array(elements) => {
+            if elements.is_empty() {
+                return Err("Cannot infer type of empty array".to_string());
+            }
+
+            let first_typed = infer_type(&elements[0], symbol_table)?;
+            // Ensure all elements in the array have the same type
+            for e in elements.iter().skip(1) {
+                let t = infer_type(e, symbol_table)?;
+                if t.expr_type != first_typed.expr_type {
+                    return Err("Array elements must have the same type".to_string());
+                }
+            }
+            // Build the array expression with typed elements
+            Ok(TypedExpr {
+                expr: Expr::Array(
+                    elements
+                        .iter()
+                        .map(|e| infer_type(e, symbol_table))
+                        .collect::<Result<Vec<_>, _>>()?,
+                ),
+                expr_type: TypeConstruct::Array(Box::new(first_typed.expr_type)),
+            })
+        }
+
+        // Case: Indexing (e.g., `arr[0]`)
+        Expr::Index(array_expr, index_expr) => {
+            let array_typed = infer_type(array_expr, symbol_table)?;
+            let index_typed = infer_type(index_expr, symbol_table)?;
+
+            if index_typed.expr_type != TypeConstruct::Int {
+                return Err("Index must be an integer".to_string());
+            }
+
+            // Make sure we're indexing into an array
+            match array_typed.expr_type {
+                TypeConstruct::Array(inner) => Ok(TypedExpr {
+                    expr: Expr::Index(Box::new(array_typed), Box::new(index_typed)),
+                    expr_type: *inner,
+                }),
+                _ => Err("Cannot index into non-array type".to_string()),
+            }
+        }
+        // Catch-all for anything unsupported
+        _ => Err("Unsupported expression".to_string()),
     }
 }

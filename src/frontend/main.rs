@@ -62,6 +62,8 @@ pub fn create_ast(input: &str) {
 */
 #[cfg(test)]
 mod tests {
+    use crate::frontend::ast::{TypeConstruct, TypedExpr};
+
     use super::super::ast::{Expr, Operator, Statement};
     use super::*; // Import the module being tested // Import the AST types
 
@@ -69,15 +71,30 @@ mod tests {
     fn correct_expression_parse() {
         //Test if input parses correctly
         // Arrange
-        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Operation(
-            Box::new(Expr::Number(3)),
-            Operator::Add,
-            Box::new(Expr::Operation(
-                Box::new(Expr::Number(5)),
-                Operator::Mul,
-                Box::new(Expr::Number(2)),
-            )),
-        )))];
+        let expected_syntax_tree = vec![Statement::Expr(Box::new(TypedExpr {
+            expr: Expr::Operation(
+                Box::new(TypedExpr {
+                    expr: Expr::Number(3),
+                    expr_type: TypeConstruct::Int,
+                }),
+                Operator::Add,
+                Box::new(TypedExpr {
+                    expr: Expr::Operation(
+                        Box::new(TypedExpr {
+                            expr: Expr::Number(5),
+                            expr_type: TypeConstruct::Int,
+                        }),
+                        Operator::Mul,
+                        Box::new(TypedExpr {
+                            expr: Expr::Number(2),
+                            expr_type: TypeConstruct::Int,
+                        }),
+                    ),
+                    expr_type: TypeConstruct::Int,
+                }),
+            ),
+            expr_type: TypeConstruct::Int,
+        }))];
 
         // Act
         let syntax_tree = create_syntax_tree("3 + 5 * 2;");
@@ -90,15 +107,30 @@ mod tests {
     fn incorrect_expression_parse() {
         //Test if wrong input parses incorrectly
         // Arrange
-        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Operation(
-            Box::new(Expr::Number(3)),
-            Operator::Add,
-            Box::new(Expr::Operation(
-                Box::new(Expr::Number(5)),
-                Operator::Add, //Incorrect operator for the test
-                Box::new(Expr::Number(2)),
-            )),
-        )))];
+        let expected_syntax_tree = vec![Statement::Expr(Box::new(TypedExpr {
+            expr: Expr::Operation(
+                Box::new(TypedExpr {
+                    expr: Expr::Number(3),
+                    expr_type: TypeConstruct::Int,
+                }),
+                Operator::Add,
+                Box::new(TypedExpr {
+                    expr: Expr::Operation(
+                        Box::new(TypedExpr {
+                            expr: Expr::Number(5),
+                            expr_type: TypeConstruct::Int,
+                        }),
+                        Operator::Add, //Incorrect operator for the test
+                        Box::new(TypedExpr {
+                            expr: Expr::Number(2),
+                            expr_type: TypeConstruct::Int,
+                        }),
+                    ),
+                    expr_type: TypeConstruct::Int,
+                }),
+            ),
+            expr_type: TypeConstruct::Int,
+        }))];
 
         // Act
         let syntax_tree = create_syntax_tree("3 + 5 * 2;");
@@ -112,10 +144,15 @@ mod tests {
         //Test if comments and whitespace are ignored
         // Arrange
         let expected_syntax_tree = vec![
-            Statement::Expr(Box::new(Expr::Number(3))),
-            Statement::Expr(Box::new(Expr::Number(2))),
+            Statement::Expr(Box::new(TypedExpr {
+                expr: Expr::Number(3),
+                expr_type: TypeConstruct::Int,
+            })),
+            Statement::Expr(Box::new(TypedExpr {
+                expr: Expr::Number(2),
+                expr_type: TypeConstruct::Int,
+            })),
         ];
-
         // Act
         let syntax_tree = create_syntax_tree("3;      //Comment ag \n2;");
 
@@ -127,16 +164,30 @@ mod tests {
     fn exponent_right_to_left_associativity() {
         //Test if exponentiation is right associative
         // Arrange
-        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Operation(
-            Box::new(Expr::Number(3)),
-            Operator::Exp,
-            Box::new(Expr::Operation(
-                Box::new(Expr::Number(2)),
+        let expected_syntax_tree = vec![Statement::Expr(Box::new(TypedExpr {
+            expr: Expr::Operation(
+                Box::new(TypedExpr {
+                    expr: Expr::Number(3),
+                    expr_type: TypeConstruct::Int,
+                }),
                 Operator::Exp,
-                Box::new(Expr::Number(1)),
-            )),
-        )))];
-
+                Box::new(TypedExpr {
+                    expr: Expr::Operation(
+                        Box::new(TypedExpr {
+                            expr: Expr::Number(2),
+                            expr_type: TypeConstruct::Int,
+                        }),
+                        Operator::Exp,
+                        Box::new(TypedExpr {
+                            expr: Expr::Number(1),
+                            expr_type: TypeConstruct::Int,
+                        }),
+                    ),
+                    expr_type: TypeConstruct::Int,
+                }),
+            ),
+            expr_type: TypeConstruct::Int,
+        }))];
         // Act
         let syntax_tree = create_syntax_tree("3 ** 2 ** 1;");
 
@@ -148,15 +199,30 @@ mod tests {
     fn addition_left_to_right_associativity() {
         //Test if addition is left associative
         // Arrange
-        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Operation(
-            Box::new(Expr::Operation(
-                Box::new(Expr::Number(3)),
+        let expected_syntax_tree = vec![Statement::Expr(Box::new(TypedExpr {
+            expr: Expr::Operation(
+                Box::new(TypedExpr {
+                    expr: Expr::Operation(
+                        Box::new(TypedExpr {
+                            expr: Expr::Number(3),
+                            expr_type: TypeConstruct::Int,
+                        }),
+                        Operator::Add,
+                        Box::new(TypedExpr {
+                            expr: Expr::Number(5),
+                            expr_type: TypeConstruct::Int,
+                        }),
+                    ),
+                    expr_type: TypeConstruct::Int,
+                }),
                 Operator::Add,
-                Box::new(Expr::Number(5)),
-            )),
-            Operator::Add,
-            Box::new(Expr::Number(2)),
-        )))];
+                Box::new(TypedExpr {
+                    expr: Expr::Number(2),
+                    expr_type: TypeConstruct::Int,
+                }),
+            ),
+            expr_type: TypeConstruct::Int,
+        }))];
 
         // Act
         let syntax_tree = create_syntax_tree("3 + 5 + 2;");
@@ -169,15 +235,30 @@ mod tests {
     fn parenteses_have_high_presedence() {
         //Test if parentheses have higher precedence than multiplication
         // Arrange
-        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Operation(
-            Box::new(Expr::Operation(
-                Box::new(Expr::Number(3)),
-                Operator::Add,
-                Box::new(Expr::Number(5)),
-            )),
-            Operator::Mul,
-            Box::new(Expr::Number(2)),
-        )))];
+        let expected_syntax_tree = vec![Statement::Expr(Box::new(TypedExpr {
+            expr: Expr::Operation(
+                Box::new(TypedExpr {
+                    expr: Expr::Operation(
+                        Box::new(TypedExpr {
+                            expr: Expr::Number(3),
+                            expr_type: TypeConstruct::Int,
+                        }),
+                        Operator::Add,
+                        Box::new(TypedExpr {
+                            expr: Expr::Number(5),
+                            expr_type: TypeConstruct::Int,
+                        }),
+                    ),
+                    expr_type: TypeConstruct::Int,
+                }),
+                Operator::Mul,
+                Box::new(TypedExpr {
+                    expr: Expr::Number(2),
+                    expr_type: TypeConstruct::Int,
+                }),
+            ),
+            expr_type: TypeConstruct::Int,
+        }))];
 
         // Act
         let syntax_tree = create_syntax_tree("(3 + 5) * 2;");
