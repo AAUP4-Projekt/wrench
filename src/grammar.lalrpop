@@ -129,26 +129,19 @@ Type: TypeConstruct = {
 // Entry rule for expressions: This is the starting point of the grammar
 // and defines the structure of valid expressions.
 Expr: Box<Expr> = {
-    // Match + or - expressions left-to-right associativity
-    <e:Expr> "+" <f:MulExpr> => Box::new(Expr::Operation(e, Operator::Add, f)),
-    <e:Expr> "-" <f:MulExpr> => Box::new(Expr::Operation(e, Operator::Sub, f)),
-    // OR just a factor (e.g., a)
-    MulExpr,
-};
-
-// Factor rule handles the multiplication and division operations
-MulExpr: Box<Expr> = {
-    // Match * expression left-to-right associativity
-    <e:MulExpr> "*" <f:ExpoExpr> => Box::new(Expr::Operation(e, Operator::Mul, f)),
-    // Or just a term (e.g., a)
-    ExpoExpr,
-};
-
-ExpoExpr: Box<Expr> = {
-    // Match ** expression right-to-left associativity
-    <e:TermExpr> "**" <f:ExpoExpr> => Box::new(Expr::Operation(e, Operator::Exp, f)),
-    // Or just a term (e.g., a)
+    #[precedence(level="0")] // Highest precedence
     TermExpr,
+
+    #[precedence(level="1")] #[assoc(side="right")]
+    <e:Expr> "**" <f:Expr> => Box::new(Expr::Operation(e, Operator::Exp, f)),
+
+    #[precedence(level="2")] #[assoc(side="left")]
+    <e:Expr> "*" <f:Expr> => Box::new(Expr::Operation(e, Operator::Mul, f)),
+
+    // Match + or - expressions left-to-right associativity
+    #[precedence(level="3")] #[assoc(side="left")]
+    <e:Expr> "+" <f:Expr> => Box::new(Expr::Operation(e, Operator::Add, f)),
+    <e:Expr> "-" <f:Expr> => Box::new(Expr::Operation(e, Operator::Sub, f)),
 };
 
 // Term represents the basic building blocks of expressions, such as numbers and parenthesized expressions
