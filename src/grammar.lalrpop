@@ -12,6 +12,7 @@ use crate::frontend::lexer::Token;
 grammar;
 
 // External definitions for the grammar
+
 extern {
     // Type used to track token positions
     type Location = usize;

@@ -1,5 +1,4 @@
 //Define enum
-
 use logos::Logos;
 
 #[derive(Logos, Debug, PartialEq, Clone)]
@@ -116,7 +115,7 @@ pub enum Token {
     For,
 
     //Literals
-    #[regex(r#""([^"\\]|\\.)*""#, |lex| lex.slice().to_string())]
+    #[regex(r#""([^"\\]|\\.)*""#, |lex| lex.slice().to_string())] //Things like "Hello"
     Stringliteral(String),
 
     //Punctuators
@@ -167,4 +166,125 @@ fn parse_integer(lex: &mut logos::Lexer<Token>) -> i32 {
 
 fn parse_double(lex: &mut logos::Lexer<Token>) -> f64 {
     lex.slice().parse().unwrap()
+}
+
+//Unit tests for lexer
+#[cfg(test)]
+mod tests {
+    use super::*; //this is for importing names from outer scope
+    use logos::Logos;
+
+    //Careful! We return Result<Token
+    #[test]
+    fn test_for_integers_and_doubles() {
+        let mut lexer = Token::lexer("5000 3.1415");
+
+        assert_eq!(lexer.next(), Some(Ok(Token::Integer(5000))));
+        assert_eq!(lexer.next(), Some(Ok(Token::Doubleliteral(3.1415926535))));
+    }
+
+    #[test]
+    fn test_for_operators() {
+        //We return Token
+        let mut lexer = Token::lexer("** * / + - == = % and or");
+
+        assert_eq!(lexer.next(), Some(Ok(Token::Expon)));
+        assert_eq!(lexer.next(), Some(Ok(Token::Star)));
+        assert_eq!(lexer.next(), Some(Ok(Token::Slash)));
+        assert_eq!(lexer.next(), Some(Ok(Token::Plus)));
+        assert_eq!(lexer.next(), Some(Ok(Token::Minus)));
+        assert_eq!(lexer.next(), Some(Ok(Token::EqualsOperator)));
+        assert_eq!(lexer.next(), Some(Ok(Token::AssignmentOperator)));
+        assert_eq!(lexer.next(), Some(Ok(Token::Modulo)));
+        assert_eq!(lexer.next(), Some(Ok(Token::LogicalAnd)));
+        assert_eq!(lexer.next(), Some(Ok(Token::LogicalOr)));
+    }
+
+    #[test]
+    fn test_for_specialchars() {
+        let mut lexer = Token::lexer("? ! $");
+
+        assert_eq!(lexer.next(), Some(Ok(Token::QuestionMark)));
+        assert_eq!(lexer.next(), Some(Ok(Token::ExclamationMark)));
+        assert_eq!(lexer.next(), Some(Ok(Token::Dollarsign)));
+    }
+
+    #[test]
+    fn test_for_keywords() {
+        let mut lexer = Token::lexer(
+            "bool int double string table row pipe rpipe fn return var const null true false if else while skip for",
+        );
+
+        assert_eq!(lexer.next(), Some(Ok(Token::Boolean)));
+        assert_eq!(lexer.next(), Some(Ok(Token::IntegerKeyword)));
+        assert_eq!(lexer.next(), Some(Ok(Token::DoubleKeyword)));
+        assert_eq!(lexer.next(), Some(Ok(Token::String)));
+        assert_eq!(lexer.next(), Some(Ok(Token::Table)));
+        assert_eq!(lexer.next(), Some(Ok(Token::Row)));
+        assert_eq!(lexer.next(), Some(Ok(Token::Pipe)));
+        assert_eq!(lexer.next(), Some(Ok(Token::Rpipe)));
+        assert_eq!(lexer.next(), Some(Ok(Token::Function)));
+        assert_eq!(lexer.next(), Some(Ok(Token::Return)));
+        assert_eq!(lexer.next(), Some(Ok(Token::Var)));
+        assert_eq!(lexer.next(), Some(Ok(Token::Constant)));
+        assert_eq!(lexer.next(), Some(Ok(Token::Null)));
+        assert_eq!(lexer.next(), Some(Ok(Token::True)));
+        assert_eq!(lexer.next(), Some(Ok(Token::False)));
+        assert_eq!(lexer.next(), Some(Ok(Token::If)));
+        assert_eq!(lexer.next(), Some(Ok(Token::Else)));
+        assert_eq!(lexer.next(), Some(Ok(Token::While)));
+        assert_eq!(lexer.next(), Some(Ok(Token::Skip)));
+        assert_eq!(lexer.next(), Some(Ok(Token::For)));
+    }
+
+    #[test]
+    fn test_for_punctuators() {
+        let mut lexer = Token::lexer("; , ( ) { } [ ] < >");
+        assert_eq!(lexer.next(), Some(Ok(Token::Semicolon)));
+        assert_eq!(lexer.next(), Some(Ok(Token::Comma)));
+        assert_eq!(lexer.next(), Some(Ok(Token::Openparan)));
+        assert_eq!(lexer.next(), Some(Ok(Token::Closeparan)));
+        assert_eq!(lexer.next(), Some(Ok(Token::Opencurlybracket)));
+        assert_eq!(lexer.next(), Some(Ok(Token::Closecurlybracket)));
+        assert_eq!(lexer.next(), Some(Ok(Token::Opensquarebracket)));
+        assert_eq!(lexer.next(), Some(Ok(Token::Closesquarebracket)));
+        assert_eq!(lexer.next(), Some(Ok(Token::LeftAngle)));
+        assert_eq!(lexer.next(), Some(Ok(Token::RightAngle)));
+    }
+
+    #[test]
+    fn test_for_whitespace() {
+        let mut lexer = Token::lexer("                  ");
+        assert_eq!(lexer.next(), None);
+    }
+
+    #[test]
+    fn test_for_string_literals() {
+        let mut lexer =
+            Token::lexer("\"Hi, my name is Wrench! Pleased to make your acquaintance\"");
+
+        assert_eq!(
+            lexer.next(),
+            Some(Ok(Token::Stringliteral(
+                "\"Hi, my name is Wrench! Pleased to make your acquaintance\"".to_string()
+            )))
+        );
+    }
+
+    #[test]
+    fn test_for_identifiers() {
+        let mut lexer = Token::lexer("my_first_variable_name");
+        assert_eq!(
+            lexer.next(),
+            Some(Ok(Token::Identifier("my_first_variable_name".to_string())))
+        );
+    }
+
+    #[test]
+    fn invalid_input() {
+        let mut lexer = Token::lexer("@ £ §");
+        assert_eq!(lexer.next(), Some(Err(())));
+        assert_eq!(lexer.next(), Some(Err(())));
+        assert_eq!(lexer.next(), Some(Err(())));
+    }
 }
