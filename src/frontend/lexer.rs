@@ -75,9 +75,6 @@ pub enum Token {
     #[token("pipe")]
     Pipe,
 
-    #[token("rpipe")]
-    Rpipe,
-
     #[token("fn")]
     Function,
 
@@ -108,11 +105,11 @@ pub enum Token {
     #[token("while")]
     While,
 
-    #[token("skip")] //equals to "pass" in python
-    Skip,
-
     #[token("for")]
     For,
+
+    #[token("in")]
+    In,
 
     //Literals
     #[regex(r#""([^"\\]|\\.)*""#, |lex| lex.slice().to_string())] //Things like "Hello"
@@ -149,6 +146,12 @@ pub enum Token {
     #[token(">")] //FOR GENERICS to be handled at parsing, not lexical analysis
     RightAngle,
 
+    #[token("<=")]
+    LessThanOrEqual,
+
+    #[token(">=")]
+    GreaterThanOrEqual,
+
     //Special chars
     #[token("!")]
     ExclamationMark,
@@ -158,6 +161,12 @@ pub enum Token {
 
     #[token("$")]
     Dollarsign,
+
+    #[token("'")]
+    Singlequote,
+
+    #[token(".")]
+    Dot,
 }
 
 fn parse_integer(lex: &mut logos::Lexer<Token>) -> i32 {
@@ -177,7 +186,7 @@ mod tests {
     //Careful! We return Result<Token
     #[test]
     fn test_for_integers_and_doubles() {
-        let mut lexer = Token::lexer("5000 3.1415");
+        let mut lexer = Token::lexer("5000 3.1415926535");
 
         assert_eq!(lexer.next(), Some(Ok(Token::Integer(5000))));
         assert_eq!(lexer.next(), Some(Ok(Token::Doubleliteral(3.1415926535))));
@@ -212,7 +221,7 @@ mod tests {
     #[test]
     fn test_for_keywords() {
         let mut lexer = Token::lexer(
-            "bool int double string table row pipe rpipe fn return var const null true false if else while skip for",
+            "bool int double string table row pipe fn return var const null true false if else while for",
         );
 
         assert_eq!(lexer.next(), Some(Ok(Token::Boolean)));
@@ -222,7 +231,6 @@ mod tests {
         assert_eq!(lexer.next(), Some(Ok(Token::Table)));
         assert_eq!(lexer.next(), Some(Ok(Token::Row)));
         assert_eq!(lexer.next(), Some(Ok(Token::Pipe)));
-        assert_eq!(lexer.next(), Some(Ok(Token::Rpipe)));
         assert_eq!(lexer.next(), Some(Ok(Token::Function)));
         assert_eq!(lexer.next(), Some(Ok(Token::Return)));
         assert_eq!(lexer.next(), Some(Ok(Token::Var)));
@@ -233,7 +241,6 @@ mod tests {
         assert_eq!(lexer.next(), Some(Ok(Token::If)));
         assert_eq!(lexer.next(), Some(Ok(Token::Else)));
         assert_eq!(lexer.next(), Some(Ok(Token::While)));
-        assert_eq!(lexer.next(), Some(Ok(Token::Skip)));
         assert_eq!(lexer.next(), Some(Ok(Token::For)));
     }
 

@@ -3,10 +3,9 @@ use crate::frontend::ast::Operator;
 use crate::frontend::ast::Statement;
 use crate::frontend::ast::TypeConstruct;
 use crate::frontend::ast::Declaration;
-use crate::frontend::ast::Misc;
+use crate::frontend::ast::Parameter;
+use crate::frontend::ast::ColumnAssignmentEnum;
 use crate::frontend::lexer::Token;
-
-
 
 // This beings the grammer definition used by lalrpop
 grammar;
@@ -41,7 +40,6 @@ extern {
         Identifier => Token::Identifier(<String>),
 
         // Reserved keywords
-        "skip" => Token::Skip,
         "while" => Token::While,
         "if" => Token::If,
         "else" => Token::Else,
@@ -50,12 +48,12 @@ extern {
         "fn" => Token::Function,
         "return" => Token::Return,
         "for" => Token::For,
-        "rpipe" => Token::Rpipe,
+        "in" => Token::In,
         "pipe" => Token::Pipe,
-        "row" => Token::Row,
-        "table" => Token::Table,
         "and" => Token::LogicalAnd,
         "or" => Token::LogicalOr,
+        "row" => Token::Row,
+        "table" => Token::Table,
 
         // Types
         "bool" => Token::Boolean,
@@ -75,9 +73,13 @@ extern {
         "]" => Token::Closesquarebracket,
         "<" => Token::LeftAngle,
         ">" => Token::RightAngle,
+        "<=" => Token::LessThanOrEqual,
+        ">=" => Token::GreaterThanOrEqual,
         "?" => Token::QuestionMark,
         "$" => Token::Dollarsign,
         "=" => Token::AssignmentOperator,
+        "'" => Token::Singlequote,
+        "." => Token::Dot,
     }
 }
 
@@ -91,69 +93,131 @@ Stmt: Statement = {
     <e:Expr> ";" => Statement::Expr(e),
     <e:Decl> ";" => Statement::Declaration(e), // Match a declaration followed by a semicolon
     <i:Identifier> "=" <e:Expr> ";" => Statement::VariableAssignment(i, e), // Variable assignment E.g. x = 5;
+    "return" <e:Expr?> ";" => Statement::Return(e), // Match a return statement with no expression
+    "if" "(" <e:Expr> ")" "{" <s:Stmt *> "}" <f:ElseBlock?> => Statement::If(e, s, f), // Match an if statement with a block of statements
+    "for" "(" <p:Param> "in" <e:Expr> ")" "{" <s:Stmt *> "}" => Statement::For(p, e, s), // Match a for loop with a block of statements
+    "while" "(" <e:Expr> ")" "{" <s:Stmt *> "}" => Statement::While(e, s), // Match a while loop with a block of statements
 };
 
 Decl: Declaration = {
     // Match variable declartions e.g. var int x = 5;
     "var" <t:Type> <i:Identifier> "=" <e:Expr> => Declaration::VariableDeclaration(t, i, e), // Variable declaration E.g. var int x = 5;
+    // Constant declaration e.g. const int x = 5;
+    "const" <t:Type> <i:Identifier> "=" <e:Expr> => Declaration::ConstantDeclaration(t, i, e), // Constant declaration E.g. const int x = 5;
     // Match function declarations e.g. fn int add(int a, int b) { return a + b; }
-    "fn" <t:Type> <i:Identifier> "(" <p:Params> ")" "{" <s:Stmt *> "}" => Declaration::FunctionDeclaration(t, i, p, s), // Function declaration E.g. fn int add(int a, int b) { return a + b; }
+    "fn" <t:Type> <i:Identifier> "(" <p:MultipleCommaSeperated<Param>> ")" "{" <s:Stmt *> "}" => Declaration::FunctionDeclaration(t, i, p, s), // Function declaration E.g. fn int add(int a, int b) { return a + b; }
 }
-
-
-Params: Vec<Misc> = {
-    // Match zero or more parameter declarations separated by commas
-    <p:(Param ("," Param)*)?> => {
-        p.map(|(first, rest)| {
-            let mut params = vec![first];
-            params.extend(rest.into_iter().map(|(_, param)| param));
-            params
-        }).unwrap_or_else(Vec::new)
-    }
-};
-
-Param: Misc = {
-    // Match a single parameter declaration
-    <t:Type> <i:Identifier> => Misc::Parameter(t, i),
-};
-
 
 Type: TypeConstruct = {
     // Match the type keywords and map them to the corresponding enum variants
-    "bool" => TypeConstruct::Bool,
-    "int" => TypeConstruct::Int,
-    "double" => TypeConstruct::Double,
-    "string" => TypeConstruct::String,
-    "null" => TypeConstruct::Null,
+    "bool" => TypeConstruct::BoolType,
+    "int" => TypeConstruct::IntType,
+    "double" => TypeConstruct::DoubleType,
+    "string" => TypeConstruct::StringType,
+    "null" => TypeConstruct::NullType,
+    "<" <i:Identifier> ">" => TypeConstruct::GenericType(i), // Match table types e.g. <table>
+    <t:Type> "?" => TypeConstruct::OptionalType(Box::new(t)), // Match optional types e.g. int?
+    <t:Type> "[" "]" => TypeConstruct::ArrayType(Box::new(t)), // Match array types e.g. int[]
+    "fn" <t:Type> "(" <p:MultipleCommaSeperated<Type>> ")" => TypeConstruct::FunctionType(Box::new(t), p), // Match function types e.g. fn int(int, int)
+    "table" "(" <p:MultipleCommaSeperated<Param>> ")" => TypeConstruct::TableType(p), // Match table types e.g. table(int, string)
+    "row" "(" <p:MultipleCommaSeperated<Param>> ")" => TypeConstruct::RowType(p), // Match row types e.g. row(int, string)
 };
 
 // Entry rule for expressions: This is the starting point of the grammar
 // and defines the structure of valid expressions.
 Expr: Box<Expr> = {
+    // Match terms like numbers, strings, parenthesized expressions, and identifiers
     #[precedence(level="0")] // Highest precedence
     TermExpr,
 
-    #[precedence(level="1")] #[assoc(side="right")]
-    <e:Expr> "**" <f:Expr> => Box::new(Expr::Operation(e, Operator::Exp, f)),
+    // Match indexing expressions e.g. a[0] or a[0][1]
+    #[precedence(level="1")] #[assoc(side="left")]
+    <e:Expr> "[" <i:Expr> "]" => Box::new(Expr::Indexing(e, i)),
+    <e:Expr> "pipe" <i:Identifier> "(" <x:MultipleCommaSeperated<Expr>> ")" => Box::new(Expr::Pipe(e, i, x)), // Match pipe expressions e.g. a pipe b(a, b)
+    <e:Expr> "." "'" <f:Expr> "'" => Box::new(Expr::ColumnIndexing(e, f)), // Match dot expressions e.g. a.b
 
-    #[precedence(level="2")] #[assoc(side="left")]
-    <e:Expr> "*" <f:Expr> => Box::new(Expr::Operation(e, Operator::Mul, f)),
+    // March ** with right-to-left associativity
+    #[precedence(level="2")] #[assoc(side="right")]
+    <e:Expr> "**" <f:Expr> => Box::new(Expr::Operation(e, Operator::Exponent, f)),
 
-    // Match + or - expressions left-to-right associativity
+    // Match * or / or % with left-to-right associativity
     #[precedence(level="3")] #[assoc(side="left")]
-    <e:Expr> "+" <f:Expr> => Box::new(Expr::Operation(e, Operator::Add, f)),
-    <e:Expr> "-" <f:Expr> => Box::new(Expr::Operation(e, Operator::Sub, f)),
+    <e:Expr> "*" <f:Expr> => Box::new(Expr::Operation(e, Operator::Multiplication, f)),
+    <e:Expr> "/" <f:Expr> => Box::new(Expr::Operation(e, Operator::Division, f)),
+    <e:Expr> "%" <f:Expr> => Box::new(Expr::Operation(e, Operator::Modulo, f)),
+
+    // Match + or - with left-to-right associativity
+    #[precedence(level="4")] #[assoc(side="left")]
+    <e:Expr> "+" <f:Expr> => Box::new(Expr::Operation(e, Operator::Addition, f)),
+    <e:Expr> "-" <f:Expr> => Box::new(Expr::Operation(e, Operator::Subtraction, f)),
+
+    // Match == with left-to-right associativity
+    #[precedence(level="5")] #[assoc(side="left")]
+    <e:Expr> "==" <f:Expr> => Box::new(Expr::Operation(e, Operator::Equals, f)),
+    <e:Expr> "<" <f:Expr> => Box::new(Expr::Operation(e, Operator::LessThan, f)),
+    <e:Expr> ">" <f:Expr> => Box::new(Expr::Operation(e, Operator::GreaterThan, f)),
+    <e:Expr> "<=" <f:Expr> => Box::new(Expr::Operation(e, Operator::LessThanOrEqual, f)),
+    <e:Expr> ">=" <f:Expr> => Box::new(Expr::Operation(e, Operator::GreaterThanOrEqual, f)),
+
+    #[precedence(level="6")]
+    "!" <e:Expr> => Box::new(Expr::Not(e)),
+
+    #[precedence(level="7")] #[assoc(side="left")]
+    <e:Expr> "and" <f:Expr> => Box::new(Expr::Operation(e, Operator::And, f)),
+
+    #[precedence(level="8")] #[assoc(side="left")]
+    <e:Expr> "or" <f:Expr> => Box::new(Expr::Operation(e, Operator::Or, f)),
 };
 
 // Term represents the basic building blocks of expressions, such as numbers and parenthesized expressions
 TermExpr: Box<Expr> = {
-    // A literal number (e.g., 42) becomes Expr::Number(i32)
-    Integer => Box::new(Expr::Number(<>)), 
+    // Literals
+    Integer => Box::new(Expr::Number(<>)),
+    DoubleLiteral => Box::new(Expr::Double(<>)),
+    Stringliteral => Box::new(Expr::StringLiteral(<>)),
+    // Null
+    "null" => Box::new(Expr::Null),
     // An identifier
     Identifier => Box::new(Expr::Identifier(<>)),
     //True and false
     "true" => Box::new(Expr::Bool(true)),
     "false" => Box::new(Expr::Bool(false)),
-    // A parenthesized expression (e.g., (a + b)) is 
+    //Row and Table
+    "row" "(" <c:MultipleCommaSeperated<ColumnAssignment>> ")" => Box::new(Expr::Row(c)),
+    "table" "(" <p:MultipleCommaSeperated<Param>> ")" => Box::new(Expr::Table(p)),
+    "[" <e:MultipleCommaSeperated<Expr>> "]" => Box::new(Expr::Array(e)), // Match array literals e.g. [1, 2, 3]
+    <i:Identifier> "(" <x:MultipleCommaSeperated<Expr>> ")" => Box::new(Expr::FunctionCall(i, x)), // Match function calls e.g. f(x, y)
     "(" <Expr> ")"
+};
+
+/* 
+=======================================
+Building blocks, used in other rules
+=======================================
+*/
+
+// Used to create comma separated list like int x, int y, int z for Param
+MultipleCommaSeperated<T>: Vec<T> = {
+    <c:(T ("," T)*)?> => {
+        c.map(|(first, rest)| {
+            let mut items = vec![first];
+            items.extend(rest.into_iter().map(|(_, item)| item));
+            items
+        }).unwrap_or_else(Vec::new)
+    }
+};
+
+// Used to define a single parameter like: int x
+Param: Parameter = {
+    <t:Type> <i:Identifier> => Parameter::Parameter(<>),
+};
+
+// Used to define a single parameter with assignment like: int x = 5
+ColumnAssignment: ColumnAssignmentEnum = {
+    <t:Type> <i:Identifier> "=" <e:Expr> => ColumnAssignmentEnum::ColumnAssignment(t, i, e),
+};
+
+// Else block used in if statement
+ElseBlock: Vec<Statement> = {
+    "else" "{" <f:Stmt*> "}" => f,
 };
