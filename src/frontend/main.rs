@@ -1,5 +1,5 @@
 use super::ast::Statement;
-use lalrpop_util::{lalrpop_mod, ParseError};
+use lalrpop_util::{ParseError, lalrpop_mod};
 use logos::Logos;
 
 use super::lexer::Token;
@@ -29,33 +29,30 @@ fn parse(tokens: Vec<(usize, Token, usize)>) -> Vec<Statement> {
             match e {
                 ParseError::InvalidToken { location } => {
                     eprintln!("Invalid token at position {}", location);
-                },
+                }
                 ParseError::UnrecognizedToken { token, expected } => {
                     let (start, token, end) = token;
                     eprintln!(
                         "Unrecognized token {:?} at position {}-{}. Expected one of: {:?}",
                         token, start, end, expected
                     );
-                },
+                }
                 ParseError::ExtraToken { token } => {
                     let (start, token, end) = token;
-                    eprintln!(
-                        "Extra token {:?} at position {}-{}",
-                        token, start, end
-                    );
-                },
+                    eprintln!("Extra token {:?} at position {}-{}", token, start, end);
+                }
                 ParseError::User { error } => {
                     eprintln!("Custom error: {}", error);
-                },
+                }
                 ParseError::UnrecognizedEof { location, expected } => {
                     eprintln!(
                         "Unrecognized EOF at position {}. Expected one of: {:?}",
                         location, expected
                     );
-                },
+                }
             }
             panic!();
-        },
+        }
     }
 }
 
@@ -66,8 +63,6 @@ pub fn create_syntax_tree(input: &str) -> Vec<Statement> {
     //Parse tokens and return the syntax tree
     parse(tokens)
 }
-
-
 
 //Print the syntax tree for debugging purposes
 fn print_syntax_tree(syntax_tree: &[Statement]) {
@@ -91,7 +86,9 @@ Unit Tests for parser
 */
 #[cfg(test)]
 mod tests {
-    use super::super::ast::{Declaration, Expr, Parameter, Operator, Statement, TypeConstruct, ColumnAssignmentEnum};
+    use super::super::ast::{
+        ColumnAssignmentEnum, Declaration, Expr, Operator, Parameter, Statement, TypeConstruct,
+    };
     use super::super::lexer::Token; // Import the Token enum from the lexer module
     use super::{create_syntax_tree, parse}; // Import the module being tested // Import the AST types
 
@@ -112,17 +109,15 @@ mod tests {
             f(Token::Semicolon),
         ];
 
-        let expected_syntax_tree = vec![
-            Statement::Expr(Box::new(Expr::Operation(
-                Box::new(Expr::Number(3)),
-                Operator::Addition,
-                Box::new(Expr::Operation(
-                    Box::new(Expr::Number(5)),
-                    Operator::Multiplication,
-                    Box::new(Expr::Number(2)),
-                )),
-            ))),
-        ];
+        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Operation(
+            Box::new(Expr::Number(3)),
+            Operator::Addition,
+            Box::new(Expr::Operation(
+                Box::new(Expr::Number(5)),
+                Operator::Multiplication,
+                Box::new(Expr::Number(2)),
+            )),
+        )))];
 
         // Act
         let syntax_tree = parse(tokens);
@@ -146,17 +141,15 @@ mod tests {
             f(Token::Semicolon),
             f(Token::ExclamationMark),
             f(Token::True),
-            f(Token::Semicolon)
+            f(Token::Semicolon),
         ];
 
         let expected_syntax_tree = vec![
             Statement::Expr(Box::new(Expr::Table(vec![
-                Parameter::Parameter(TypeConstruct::IntType, "id".to_string()),
-                Parameter::Parameter(TypeConstruct::StringType, "name".to_string()),
+                Parameter::Parameter(TypeConstruct::Int, "id".to_string()),
+                Parameter::Parameter(TypeConstruct::String, "name".to_string()),
             ]))),
-            Statement::Expr(Box::new(Expr::Not(
-                Box::new(Expr::Bool(true)),
-            ))),
+            Statement::Expr(Box::new(Expr::Not(Box::new(Expr::Bool(true))))),
         ];
 
         // Act
@@ -166,12 +159,11 @@ mod tests {
         assert_eq!(syntax_tree, expected_syntax_tree);
     }
 
-
-/*
-========================================================
-Integration Tests for parser
-========================================================
-*/
+    /*
+    ========================================================
+    Integration Tests for parser
+    ========================================================
+    */
 
     #[test]
     fn correct_expression_parse() {
@@ -298,8 +290,8 @@ Integration Tests for parser
     fn parses_empty_functions() {
         //Test if empty functions are parsed correctly
         // Arrange
-        let expected_syntax_tree = vec![Statement::Declaration(Declaration::FunctionDeclaration(
-            TypeConstruct::IntType,
+        let expected_syntax_tree = vec![Statement::Declaration(Declaration::Function(
+            TypeConstruct::Int,
             "b".to_string(),
             vec![],
             vec![],
@@ -316,10 +308,10 @@ Integration Tests for parser
     fn parses_function_with_parameters_and_body() {
         //Test if functions with parameters are parsed correctly
         // Arrange
-        let expected_syntax_tree = vec![Statement::Declaration(Declaration::FunctionDeclaration(
-            TypeConstruct::IntType,
+        let expected_syntax_tree = vec![Statement::Declaration(Declaration::Function(
+            TypeConstruct::Int,
             "b".to_string(),
-            vec![Parameter::Parameter(TypeConstruct::IntType, "x".to_string())],
+            vec![Parameter::Parameter(TypeConstruct::Int, "x".to_string())],
             vec![Statement::VariableAssignment(
                 "x".to_string(),
                 Box::new(Expr::Number(3)),
@@ -339,17 +331,17 @@ Integration Tests for parser
         // Arrange
         let expected_syntax_tree = vec![
             Statement::Expr(Box::new(Expr::Table(vec![
-                Parameter::Parameter(TypeConstruct::IntType, "id".to_string()),
-                Parameter::Parameter(TypeConstruct::StringType, "name".to_string()),
+                Parameter::Parameter(TypeConstruct::Int, "id".to_string()),
+                Parameter::Parameter(TypeConstruct::String, "name".to_string()),
             ]))),
             Statement::Expr(Box::new(Expr::Row(vec![
                 ColumnAssignmentEnum::ColumnAssignment(
-                    TypeConstruct::IntType,
+                    TypeConstruct::Int,
                     "id".to_string(),
                     Box::new(Expr::Number(1)),
                 ),
                 ColumnAssignmentEnum::ColumnAssignment(
-                    TypeConstruct::StringType,
+                    TypeConstruct::String,
                     "name".to_string(),
                     Box::new(Expr::Identifier("Alice".to_string())),
                 ),
@@ -357,76 +349,72 @@ Integration Tests for parser
         ];
 
         // Act
-        let syntax_tree = create_syntax_tree(
-            "table(int id, string name); row(int id = 1, string name = Alice);",
-        );
+        let syntax_tree =
+            create_syntax_tree("table(int id, string name); row(int id = 1, string name = Alice);");
 
         // Assert
         assert_eq!(syntax_tree, expected_syntax_tree);
     }
 
     #[test]
-fn parses_boolean_operators() {
-    // Test if boolean operators are parsed correctly
-    // Arrange
-    let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Operation(
-        Box::new(Expr::Operation(
+    fn parses_boolean_operators() {
+        // Test if boolean operators are parsed correctly
+        // Arrange
+        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Operation(
+            Box::new(Expr::Operation(
+                Box::new(Expr::Bool(true)),
+                Operator::And,
+                Box::new(Expr::Bool(false)),
+            )),
+            Operator::Or,
             Box::new(Expr::Bool(true)),
-            Operator::And,
-            Box::new(Expr::Bool(false)),
-        )),
-        Operator::Or,
-        Box::new(Expr::Bool(true)),
-    )))];
+        )))];
 
-    // Act
-    let syntax_tree = create_syntax_tree("true and false or true;");
+        // Act
+        let syntax_tree = create_syntax_tree("true and false or true;");
 
-    // Assert
-    assert_eq!(syntax_tree, expected_syntax_tree);
-}
+        // Assert
+        assert_eq!(syntax_tree, expected_syntax_tree);
+    }
 
-#[test]
-fn parses_doubles() {
-    // Test if double literals are parsed correctly
-    // Arrange
-    let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Double(3.14)))];
+    #[test]
+    fn parses_doubles() {
+        // Test if double literals are parsed correctly
+        // Arrange
+        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Double(3.14)))];
 
-    // Act
-    let syntax_tree = create_syntax_tree("3.14;");
+        // Act
+        let syntax_tree = create_syntax_tree("3.14;");
 
-    // Assert
-    assert_eq!(syntax_tree, expected_syntax_tree);
-}
+        // Assert
+        assert_eq!(syntax_tree, expected_syntax_tree);
+    }
 
-#[test]
-fn parses_null() {
-    // Test if null values are parsed correctly
-    // Arrange
-    let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Null))];
+    #[test]
+    fn parses_null() {
+        // Test if null values are parsed correctly
+        // Arrange
+        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Null))];
 
-    // Act
-    let syntax_tree = create_syntax_tree("null;");
+        // Act
+        let syntax_tree = create_syntax_tree("null;");
 
-    // Assert
-    assert_eq!(syntax_tree, expected_syntax_tree);
-}
+        // Assert
+        assert_eq!(syntax_tree, expected_syntax_tree);
+    }
 
-#[test]
-fn parses_double_negation() {
-    // Test if double negation is parsed correctly
-    // Arrange
-    let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Not(
-        Box::new(Expr::Not(
+    #[test]
+    fn parses_double_negation() {
+        // Test if double negation is parsed correctly
+        // Arrange
+        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Not(Box::new(Expr::Not(
             Box::new(Expr::Bool(true)),
-        )),
-    )))];
+        )))))];
 
-    // Act
-    let syntax_tree = create_syntax_tree("!!true;");
+        // Act
+        let syntax_tree = create_syntax_tree("!!true;");
 
-    // Assert
-    assert_eq!(syntax_tree, expected_syntax_tree);
-}
-
+        // Assert
+        assert_eq!(syntax_tree, expected_syntax_tree);
+    }
 }

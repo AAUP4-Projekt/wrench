@@ -101,26 +101,26 @@ Stmt: Statement = {
 
 Decl: Declaration = {
     // Match variable declartions e.g. var int x = 5;
-    "var" <t:Type> <i:Identifier> "=" <e:Expr> => Declaration::VariableDeclaration(t, i, e), // Variable declaration E.g. var int x = 5;
+    "var" <t:Type> <i:Identifier> "=" <e:Expr> => Declaration::Variable(t, i, e), // Variable declaration E.g. var int x = 5;
     // Constant declaration e.g. const int x = 5;
-    "const" <t:Type> <i:Identifier> "=" <e:Expr> => Declaration::ConstantDeclaration(t, i, e), // Constant declaration E.g. const int x = 5;
+    "const" <t:Type> <i:Identifier> "=" <e:Expr> => Declaration::Constant(t, i, e), // Constant declaration E.g. const int x = 5;
     // Match function declarations e.g. fn int add(int a, int b) { return a + b; }
-    "fn" <t:Type> <i:Identifier> "(" <p:MultipleCommaSeperated<Param>> ")" "{" <s:Stmt *> "}" => Declaration::FunctionDeclaration(t, i, p, s), // Function declaration E.g. fn int add(int a, int b) { return a + b; }
+    "fn" <t:Type> <i:Identifier> "(" <p:MultipleCommaSeperated<Param>> ")" "{" <s:Stmt *> "}" => Declaration::Function(t, i, p, s), // Function declaration E.g. fn int add(int a, int b) { return a + b; }
 }
 
 Type: TypeConstruct = {
     // Match the type keywords and map them to the corresponding enum variants
-    "bool" => TypeConstruct::BoolType,
-    "int" => TypeConstruct::IntType,
-    "double" => TypeConstruct::DoubleType,
-    "string" => TypeConstruct::StringType,
-    "null" => TypeConstruct::NullType,
-    "<" <i:Identifier> ">" => TypeConstruct::GenericType(i), // Match table types e.g. <table>
-    <t:Type> "?" => TypeConstruct::OptionalType(Box::new(t)), // Match optional types e.g. int?
-    <t:Type> "[" "]" => TypeConstruct::ArrayType(Box::new(t)), // Match array types e.g. int[]
-    "fn" <t:Type> "(" <p:MultipleCommaSeperated<Type>> ")" => TypeConstruct::FunctionType(Box::new(t), p), // Match function types e.g. fn int(int, int)
-    "table" "(" <p:MultipleCommaSeperated<Param>> ")" => TypeConstruct::TableType(p), // Match table types e.g. table(int, string)
-    "row" "(" <p:MultipleCommaSeperated<Param>> ")" => TypeConstruct::RowType(p), // Match row types e.g. row(int, string)
+    "bool" => TypeConstruct::Bool,
+    "int" => TypeConstruct::Int,
+    "double" => TypeConstruct::Double,
+    "string" => TypeConstruct::String,
+    "null" => TypeConstruct::Null,
+    "<" <i:Identifier> ">" => TypeConstruct::Generic(i), // Match table types e.g. <table>
+    <t:Type> "?" => TypeConstruct::Optional(Box::new(t)), // Match optional types e.g. int?
+    <t:Type> "[" "]" => TypeConstruct::Array(Box::new(t)), // Match array types e.g. int[]
+    "fn" <t:Type> "(" <p:MultipleCommaSeperated<Type>> ")" => TypeConstruct::Function(Box::new(t), p), // Match function types e.g. fn int(int, int)
+    "table" "(" <p:MultipleCommaSeperated<Param>> ")" => TypeConstruct::Table(p), // Match table types e.g. table(int, string)
+    "row" "(" <p:MultipleCommaSeperated<Param>> ")" => TypeConstruct::Row(p), // Match row types e.g. row(int, string)
 };
 
 // Entry rule for expressions: This is the starting point of the grammar

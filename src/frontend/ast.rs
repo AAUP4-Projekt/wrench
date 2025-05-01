@@ -1,3 +1,5 @@
+#![allow(clippy::vec_box)]
+
 use std::fmt::Debug;
 
 #[derive(PartialEq, Debug)]
@@ -13,16 +15,16 @@ pub enum Statement {
 
 #[derive(PartialEq, Debug)]
 pub enum Declaration {
-    VariableDeclaration(TypeConstruct, String, Box<Expr>), // Represents a variable declaration with its type, name, and assigned value
-    ConstantDeclaration(TypeConstruct, String, Box<Expr>), // Represents a variable declaration with its type, name, and assigned value
-    FunctionDeclaration(TypeConstruct, String, Vec<Parameter>, Vec<Statement>), // Represents a function declaration with its return type, name, parameters, and body
+    Variable(TypeConstruct, String, Box<Expr>), // Represents a variable declaration with its type, name, and assigned value
+    Constant(TypeConstruct, String, Box<Expr>), // Represents a variable declaration with its type, name, and assigned value
+    Function(TypeConstruct, String, Vec<Parameter>, Vec<Statement>), // Represents a function declaration with its return type, name, parameters, and body
 }
 
 #[derive(PartialEq, Debug)]
 pub enum Expr {
     Number(i32),                               // Represents a number
-    Double(f64),                              // Represents a double value
-    Null,                                  // Represents a null value
+    Double(f64),                               // Represents a double value
+    Null,                                      // Represents a null value
     StringLiteral(String),                     // Represents a string literal
     Identifier(String),                        // Represents an identifier (variable name)
     Bool(bool),                                // Represents a boolean value
@@ -31,7 +33,7 @@ pub enum Expr {
     Table(Vec<Parameter>),
     Row(Vec<ColumnAssignmentEnum>),
     Indexing(Box<Expr>, Box<Expr>), // Represents indexing, e.g. into an array
-    Array(Vec<Box<Expr>>), // Represents an array with its elements
+    Array(Vec<Box<Expr>>),          // Represents an array with its elements
     Pipe(Box<Expr>, String, Vec<Box<Expr>>), // Represents a pipe operation, e.g. for chaining operations
     FunctionCall(String, Vec<Box<Expr>>), // Represents a function call with its name and arguments
     ColumnIndexing(Box<Expr>, Box<Expr>), // Represents indexing into a column of a table or row
@@ -40,38 +42,38 @@ pub enum Expr {
 // Enum representing types
 #[derive(PartialEq, Debug)]
 pub enum TypeConstruct {
-    BoolType,
-    IntType,
-    DoubleType,
-    StringType,
-    NullType,
-    GenericType(String), // Represents a generic type with a name
-    OptionalType(Box<TypeConstruct>), // Represents an optional type
-    ArrayType(Box<TypeConstruct>), // Represents an array type
-    FunctionType(Box<TypeConstruct>, Vec<TypeConstruct>), // Represents a function type with return type and parameter types
-    TableType(Vec<Parameter>), // Represents a table type with its columns
-    RowType(Vec<Parameter>), // Represents a row type with its columns
+    Bool,
+    Int,
+    Double,
+    String,
+    Null,
+    Generic(String),              // Represents a generic type with a name
+    Optional(Box<TypeConstruct>), // Represents an optional type
+    Array(Box<TypeConstruct>),    // Represents an array type
+    Function(Box<TypeConstruct>, Vec<TypeConstruct>), // Represents a function type with return type and parameter types
+    Table(Vec<Parameter>),                            // Represents a table type with its columns
+    Row(Vec<Parameter>),                              // Represents a row type with its columns
 }
 
 // Enum representing the different types of operations
 #[derive(PartialEq, Debug)]
 pub enum Operator {
-    Multiplication, // multiplication (*)
-    Exponent, // exponent (**)
-    Addition, // addition (+)
-    Subtraction, // subtraction (-)
-    Division, // division (/)
-    Modulo, // modulo (%)
-    Equals, // equality (==)
-    LessThan, // less than (<)
-    GreaterThan, // greater than (>)
-    LessThanOrEqual, // less than or equal (<=)
+    Multiplication,     // multiplication (*)
+    Exponent,           // exponent (**)
+    Addition,           // addition (+)
+    Subtraction,        // subtraction (-)
+    Division,           // division (/)
+    Modulo,             // modulo (%)
+    Equals,             // equality (==)
+    LessThan,           // less than (<)
+    GreaterThan,        // greater than (>)
+    LessThanOrEqual,    // less than or equal (<=)
     GreaterThanOrEqual, // greater than or equal (>=)
-    And, // logical AND
-    Or, // logical OR
+    And,                // logical AND
+    Or,                 // logical OR
 }
 
-/* 
+/*
 =======================================
 Building blocks, used in other enums
 =======================================
