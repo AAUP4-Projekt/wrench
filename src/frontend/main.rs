@@ -1,17 +1,13 @@
 use super::ast::Statement;
-use lalrpop_util::lalrpop_mod;
+use lalrpop_util::{ParseError, lalrpop_mod};
 use logos::Logos;
 
 use super::lexer::Token;
 
-lalrpop_mod!(pub grammar);
+lalrpop_mod!(#[allow(clippy::all)] pub grammar);
 
-//Lex tokens from input and parse them into a syntax tree
-pub fn create_syntax_tree(input: &str) -> Vec<Statement> {
-    //Lex
+fn lex(input: &str) -> Vec<(usize, Token, usize)> {
     let lexer = Token::lexer(input);
-
-    //Collect tokens
     let tokens: Vec<_> = lexer
         .spanned()
         .filter_map(|(token, span)| match token {
@@ -22,13 +18,50 @@ pub fn create_syntax_tree(input: &str) -> Vec<Statement> {
             }
         })
         .collect();
+    tokens
+}
 
+fn parse(tokens: Vec<(usize, Token, usize)>) -> Vec<Statement> {
     let parser = grammar::ProgramParser::new();
-
     match parser.parse(tokens) {
         Ok(program) => program,
-        Err(e) => panic!("Parse error: {:?}", e),
+        Err(e) => {
+            match e {
+                ParseError::InvalidToken { location } => {
+                    eprintln!("Invalid token at position {}", location);
+                }
+                ParseError::UnrecognizedToken { token, expected } => {
+                    let (start, token, end) = token;
+                    eprintln!(
+                        "Unrecognized token {:?} at position {}-{}. Expected one of: {:?}",
+                        token, start, end, expected
+                    );
+                }
+                ParseError::ExtraToken { token } => {
+                    let (start, token, end) = token;
+                    eprintln!("Extra token {:?} at position {}-{}", token, start, end);
+                }
+                ParseError::User { error } => {
+                    eprintln!("Custom error: {}", error);
+                }
+                ParseError::UnrecognizedEof { location, expected } => {
+                    eprintln!(
+                        "Unrecognized EOF at position {}. Expected one of: {:?}",
+                        location, expected
+                    );
+                }
+            }
+            panic!();
+        }
     }
+}
+
+//Lex tokens from input and parse them into a syntax tree
+pub fn create_syntax_tree(input: &str) -> Vec<Statement> {
+    //Collect tokens
+    let tokens = lex(input);
+    //Parse tokens and return the syntax tree
+    parse(tokens)
 }
 
 //Print the syntax tree for debugging purposes
@@ -47,12 +80,90 @@ pub fn create_ast(input: &str) {
 }
 
 /*
-    Unit Tests
+========================================================
+Unit Tests for parser
+========================================================
 */
 #[cfg(test)]
 mod tests {
-    use super::super::ast::{Expr, Operator, Statement};
-    use super::*; // Import the module being tested // Import the AST types
+    use super::super::ast::{
+        ColumnAssignmentEnum, Declaration, Expr, Operator, Parameter, Statement, TypeConstruct,
+    };
+    use super::super::lexer::Token; // Import the Token enum from the lexer module
+    use super::{create_syntax_tree, parse}; // Import the module being tested // Import the AST types
+
+    // Helper function for create a tuple of (usize, Token, usize)
+    fn f(t: Token) -> (usize, Token, usize) {
+        return (0, t, 0);
+    }
+
+    #[test]
+    fn tokens_are_pased_1() {
+        // Arrange
+        let tokens = vec![
+            f(Token::Integer(3)),
+            f(Token::Plus),
+            f(Token::Integer(5)),
+            f(Token::Star),
+            f(Token::Integer(2)),
+            f(Token::Semicolon),
+        ];
+
+        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Operation(
+            Box::new(Expr::Number(3)),
+            Operator::Addition,
+            Box::new(Expr::Operation(
+                Box::new(Expr::Number(5)),
+                Operator::Multiplication,
+                Box::new(Expr::Number(2)),
+            )),
+        )))];
+
+        // Act
+        let syntax_tree = parse(tokens);
+
+        // Assert
+        assert_eq!(syntax_tree, expected_syntax_tree);
+    }
+
+    #[test]
+    fn tokens_are_pased_2() {
+        // Arrange
+        let tokens = vec![
+            f(Token::Table),
+            f(Token::Openparan),
+            f(Token::IntegerKeyword),
+            f(Token::Identifier("id".to_string())),
+            f(Token::Comma),
+            f(Token::String),
+            f(Token::Identifier("name".to_string())),
+            f(Token::Closeparan),
+            f(Token::Semicolon),
+            f(Token::ExclamationMark),
+            f(Token::True),
+            f(Token::Semicolon),
+        ];
+
+        let expected_syntax_tree = vec![
+            Statement::Expr(Box::new(Expr::Table(vec![
+                Parameter::Parameter(TypeConstruct::Int, "id".to_string()),
+                Parameter::Parameter(TypeConstruct::String, "name".to_string()),
+            ]))),
+            Statement::Expr(Box::new(Expr::Not(Box::new(Expr::Bool(true))))),
+        ];
+
+        // Act
+        let syntax_tree = parse(tokens);
+
+        // Assert
+        assert_eq!(syntax_tree, expected_syntax_tree);
+    }
+
+    /*
+    ========================================================
+    Integration Tests for parser
+    ========================================================
+    */
 
     #[test]
     fn correct_expression_parse() {
@@ -60,10 +171,10 @@ mod tests {
         // Arrange
         let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Operation(
             Box::new(Expr::Number(3)),
-            Operator::Add,
+            Operator::Addition,
             Box::new(Expr::Operation(
                 Box::new(Expr::Number(5)),
-                Operator::Mul,
+                Operator::Multiplication,
                 Box::new(Expr::Number(2)),
             )),
         )))];
@@ -81,10 +192,10 @@ mod tests {
         // Arrange
         let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Operation(
             Box::new(Expr::Number(3)),
-            Operator::Add,
+            Operator::Addition,
             Box::new(Expr::Operation(
                 Box::new(Expr::Number(5)),
-                Operator::Add, //Incorrect operator for the test
+                Operator::Addition, //Incorrect operator for the test
                 Box::new(Expr::Number(2)),
             )),
         )))];
@@ -118,10 +229,10 @@ mod tests {
         // Arrange
         let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Operation(
             Box::new(Expr::Number(3)),
-            Operator::Exp,
+            Operator::Exponent,
             Box::new(Expr::Operation(
                 Box::new(Expr::Number(2)),
-                Operator::Exp,
+                Operator::Exponent,
                 Box::new(Expr::Number(1)),
             )),
         )))];
@@ -140,10 +251,10 @@ mod tests {
         let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Operation(
             Box::new(Expr::Operation(
                 Box::new(Expr::Number(3)),
-                Operator::Add,
+                Operator::Addition,
                 Box::new(Expr::Number(5)),
             )),
-            Operator::Add,
+            Operator::Addition,
             Box::new(Expr::Number(2)),
         )))];
 
@@ -161,10 +272,10 @@ mod tests {
         let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Operation(
             Box::new(Expr::Operation(
                 Box::new(Expr::Number(3)),
-                Operator::Add,
+                Operator::Addition,
                 Box::new(Expr::Number(5)),
             )),
-            Operator::Mul,
+            Operator::Multiplication,
             Box::new(Expr::Number(2)),
         )))];
 
@@ -172,6 +283,138 @@ mod tests {
         let syntax_tree = create_syntax_tree("(3 + 5) * 2;");
 
         //Assert
+        assert_eq!(syntax_tree, expected_syntax_tree);
+    }
+
+    #[test]
+    fn parses_empty_functions() {
+        //Test if empty functions are parsed correctly
+        // Arrange
+        let expected_syntax_tree = vec![Statement::Declaration(Declaration::Function(
+            TypeConstruct::Int,
+            "b".to_string(),
+            vec![],
+            vec![],
+        ))];
+
+        // Act
+        let syntax_tree = create_syntax_tree("fn int b(){};");
+
+        //Assert
+        assert_eq!(syntax_tree, expected_syntax_tree);
+    }
+
+    #[test]
+    fn parses_function_with_parameters_and_body() {
+        //Test if functions with parameters are parsed correctly
+        // Arrange
+        let expected_syntax_tree = vec![Statement::Declaration(Declaration::Function(
+            TypeConstruct::Int,
+            "b".to_string(),
+            vec![Parameter::Parameter(TypeConstruct::Int, "x".to_string())],
+            vec![Statement::VariableAssignment(
+                "x".to_string(),
+                Box::new(Expr::Number(3)),
+            )],
+        ))];
+
+        // Act
+        let syntax_tree = create_syntax_tree("fn int b(int x){x = 3;};");
+
+        // Assert
+        assert_eq!(syntax_tree, expected_syntax_tree);
+    }
+
+    #[test]
+    fn parses_tables_and_rows() {
+        // Test if tables and rows are parsed correctly
+        // Arrange
+        let expected_syntax_tree = vec![
+            Statement::Expr(Box::new(Expr::Table(vec![
+                Parameter::Parameter(TypeConstruct::Int, "id".to_string()),
+                Parameter::Parameter(TypeConstruct::String, "name".to_string()),
+            ]))),
+            Statement::Expr(Box::new(Expr::Row(vec![
+                ColumnAssignmentEnum::ColumnAssignment(
+                    TypeConstruct::Int,
+                    "id".to_string(),
+                    Box::new(Expr::Number(1)),
+                ),
+                ColumnAssignmentEnum::ColumnAssignment(
+                    TypeConstruct::String,
+                    "name".to_string(),
+                    Box::new(Expr::Identifier("Alice".to_string())),
+                ),
+            ]))),
+        ];
+
+        // Act
+        let syntax_tree =
+            create_syntax_tree("table(int id, string name); row(int id = 1, string name = Alice);");
+
+        // Assert
+        assert_eq!(syntax_tree, expected_syntax_tree);
+    }
+
+    #[test]
+    fn parses_boolean_operators() {
+        // Test if boolean operators are parsed correctly
+        // Arrange
+        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Operation(
+            Box::new(Expr::Operation(
+                Box::new(Expr::Bool(true)),
+                Operator::And,
+                Box::new(Expr::Bool(false)),
+            )),
+            Operator::Or,
+            Box::new(Expr::Bool(true)),
+        )))];
+
+        // Act
+        let syntax_tree = create_syntax_tree("true and false or true;");
+
+        // Assert
+        assert_eq!(syntax_tree, expected_syntax_tree);
+    }
+
+    #[test]
+    fn parses_doubles() {
+        // Test if double literals are parsed correctly
+        // Arrange
+        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Double(3.14)))];
+
+        // Act
+        let syntax_tree = create_syntax_tree("3.14;");
+
+        // Assert
+        assert_eq!(syntax_tree, expected_syntax_tree);
+    }
+
+    #[test]
+    fn parses_null() {
+        // Test if null values are parsed correctly
+        // Arrange
+        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Null))];
+
+        // Act
+        let syntax_tree = create_syntax_tree("null;");
+
+        // Assert
+        assert_eq!(syntax_tree, expected_syntax_tree);
+    }
+
+    #[test]
+    fn parses_double_negation() {
+        // Test if double negation is parsed correctly
+        // Arrange
+        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Not(Box::new(Expr::Not(
+            Box::new(Expr::Bool(true)),
+        )))))];
+
+        // Act
+        let syntax_tree = create_syntax_tree("!!true;");
+
+        // Assert
         assert_eq!(syntax_tree, expected_syntax_tree);
     }
 }
