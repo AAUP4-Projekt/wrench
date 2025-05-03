@@ -1,7 +1,10 @@
 // Import HashMap to keep track of variable types and their types
 use std::collections::HashMap;
 // Import the AST types
-use super::ast::{ColumnAssignmentEnum, Declaration, Expr, Operator, Parameter, Statement, TypeConstruct, TypedExpr};
+use super::ast::{
+    ColumnAssignmentEnum, Declaration, Expr, Operator, Parameter, Statement, TypeConstruct,
+    TypedExpr,
+};
 
 // This function checks the types of a list of statements
 pub fn type_check(statements: &[Statement]) -> Result<Vec<Statement>, String> {
@@ -35,7 +38,10 @@ pub fn type_check(statements: &[Statement]) -> Result<Vec<Statement>, String> {
                             ));
                         }
                         // Add the variable to the current scope
-                        scope_stack.last_mut().unwrap().insert(name.clone(), var_type.clone());
+                        scope_stack
+                            .last_mut()
+                            .unwrap()
+                            .insert(name.clone(), var_type.clone());
                         // Add the type-annotated declaration to the result list
                         typed_statements.push(Statement::Declaration(Declaration::Variable(
                             var_type.clone(),
@@ -52,7 +58,10 @@ pub fn type_check(statements: &[Statement]) -> Result<Vec<Statement>, String> {
                             ));
                         }
                         // Add the constant to the current scope
-                        scope_stack.last_mut().unwrap().insert(name.clone(), const_type.clone());
+                        scope_stack
+                            .last_mut()
+                            .unwrap()
+                            .insert(name.clone(), const_type.clone());
                         // Add the type-annotated constant to the result list
                         typed_statements.push(Statement::Declaration(Declaration::Constant(
                             const_type.clone(),
@@ -73,7 +82,10 @@ pub fn type_check(statements: &[Statement]) -> Result<Vec<Statement>, String> {
                         // Push a new scope for the function body
                         push_scope(&mut scope_stack);
                         for Parameter::Parameter(param_type, param_name) in params {
-                            scope_stack.last_mut().unwrap().insert(param_name.clone(), param_type.clone());
+                            scope_stack
+                                .last_mut()
+                                .unwrap()
+                                .insert(param_name.clone(), param_type.clone());
                         }
 
                         let mut typed_body = Vec::new();
@@ -99,38 +111,48 @@ pub fn type_check(statements: &[Statement]) -> Result<Vec<Statement>, String> {
             // Case for
             Statement::For(param, iterable_expr, body) => {
                 let typed_iterable = infer_type(iterable_expr, &scope_stack)?;
-                if let TypeConstruct::Array(element_type) = &typed_iterable.expr_type {
-                    push_scope(&mut scope_stack);
-                    if let Parameter::Parameter(param_type, param_name) = param {
-                        if *param_type != **element_type {
-                            return Err(format!(
-                                "Type mismatch in for-loop: expected {:?}, found {:?} for iterator '{}'",
-                                param_type, element_type, param_name
-                            ));
+            
+                // Match på typen af `typed_iterable.expr_type`
+                match &typed_iterable.expr_type {
+                    TypeConstruct::Array(element_type) => {
+                        push_scope(&mut scope_stack);
+            
+                        // Match på parameteren
+                        match param {
+                            Parameter::Parameter(param_type, param_name) => {
+                                if *param_type != **element_type {
+                                    return Err(format!(
+                                        "Type mismatch in for-loop: expected {:?}, found {:?} for iterator '{}'",
+                                        param_type, element_type, param_name
+                                    ));
+                                }
+                                scope_stack
+                                    .last_mut()
+                                    .unwrap()
+                                    .insert(param_name.clone(), *element_type.clone());
+                            }
                         }
-                        scope_stack.last_mut().unwrap().insert(param_name.clone(), *element_type.clone());
-                    } else {
-                        return Err("Invalid parameter in for-loop".to_string());
+            
+                        let mut typed_body = Vec::new();
+                        for stmt in body {
+                            let typed_stmt = type_check(&[stmt.clone()])?;
+                            typed_body.extend(typed_stmt);
+                        }
+            
+                        pop_scope(&mut scope_stack);
+            
+                        typed_statements.push(Statement::For(
+                            param.clone(),
+                            Box::new(typed_iterable.expr),
+                            typed_body,
+                        ));
                     }
-
-                    let mut typed_body = Vec::new();
-                    for stmt in body {
-                        let typed_stmt = type_check(&[stmt.clone()])?;
-                        typed_body.extend(typed_stmt);
+                    _ => {
+                        return Err(format!(
+                            "For-loop iterable must be an array, found {:?}",
+                            typed_iterable.expr_type
+                        ));
                     }
-
-                    pop_scope(&mut scope_stack);
-
-                    typed_statements.push(Statement::For(
-                        param.clone(),
-                        Box::new(typed_iterable.expr),
-                        typed_body,
-                    ));
-                } else {
-                    return Err(format!(
-                        "For-loop iterable must be an array, found {:?}",
-                        typed_iterable.expr_type
-                    ));
                 }
             }
 
@@ -152,7 +174,7 @@ pub fn type_check(statements: &[Statement]) -> Result<Vec<Statement>, String> {
                     return Err(format!("Undefined variable '{}'", name));
                 }
             }
-            
+
             Statement::Expr(expr) => {
                 let typed_expr = infer_type(expr, &scope_stack)?;
                 typed_statements.push(Statement::Expr(Box::new(typed_expr.expr)));
@@ -212,13 +234,8 @@ pub fn type_check(statements: &[Statement]) -> Result<Vec<Statement>, String> {
                 pop_scope(&mut scope_stack);
 
                 // Add the type-annotated while statement to the result list
-                typed_statements.push(Statement::While(
-                    Box::new(typed_condition.expr),
-                    typed_body,
-                ));
+                typed_statements.push(Statement::While(Box::new(typed_condition.expr), typed_body));
             }
-
-            
 
             Statement::Return(expr) => {
                 let typed_expr = match expr {
@@ -227,20 +244,17 @@ pub fn type_check(statements: &[Statement]) -> Result<Vec<Statement>, String> {
                 };
                 typed_statements.push(Statement::Return(typed_expr.map(|e| Box::new(e.expr))));
             }
-
-
-            _ => {}
         }
     }
 
     Ok(typed_statements)
 }
 
-
-
-
 // Update `infer_type` to use the scope stack
-fn infer_type(expr: &Expr, scope_stack: &[HashMap<String, TypeConstruct>]) -> Result<TypedExpr, String> {
+fn infer_type(
+    expr: &Expr,
+    scope_stack: &[HashMap<String, TypeConstruct>],
+) -> Result<TypedExpr, String> {
     match expr {
         // Case: Integer literal (e.g., `5`)
         Expr::Number(value) => Ok(TypedExpr {
@@ -252,7 +266,7 @@ fn infer_type(expr: &Expr, scope_stack: &[HashMap<String, TypeConstruct>]) -> Re
             expr: Expr::Bool(*value),
             expr_type: TypeConstruct::Bool,
         }),
-         // Case: Floating-point number (e.g., `3.14`)
+        // Case: Floating-point number (e.g., `3.14`)
         Expr::Double(value) => Ok(TypedExpr {
             expr: Expr::Double(*value),
             expr_type: TypeConstruct::Double,
@@ -293,14 +307,27 @@ fn infer_type(expr: &Expr, scope_stack: &[HashMap<String, TypeConstruct>]) -> Re
 
             // Only allow arithmetic operations on Int or Double
             match op {
-                Operator::Addition | Operator::Subtraction | Operator::Multiplication | Operator::Division | Operator::Exponent => {
-                    if left_typed.expr_type == TypeConstruct::Int || left_typed.expr_type == TypeConstruct::Double {
+                Operator::Addition
+                | Operator::Subtraction
+                | Operator::Multiplication
+                | Operator::Division
+                | Operator::Exponent => {
+                    if left_typed.expr_type == TypeConstruct::Int
+                        || left_typed.expr_type == TypeConstruct::Double
+                    {
                         Ok(TypedExpr {
-                            expr: Expr::Operation(Box::new(left_typed.expr), (*op).clone(), Box::new(right_typed.expr)),
+                            expr: Expr::Operation(
+                                Box::new(left_typed.expr),
+                                (*op).clone(),
+                                Box::new(right_typed.expr),
+                            ),
                             expr_type: left_typed.expr_type,
                         })
                     } else {
-                        Err(format!("Invalid operation for type {:?}", left_typed.expr_type))
+                        Err(format!(
+                            "Invalid operation for type {:?}",
+                            left_typed.expr_type
+                        ))
                     }
                 }
                 _ => Err("Unsupported operator".to_string()),
@@ -406,8 +433,7 @@ fn infer_type(expr: &Expr, scope_stack: &[HashMap<String, TypeConstruct>]) -> Re
             // Type-check input to the pipe
             let left_typed = infer_type(left, scope_stack)?;
             println!("Pipe input type: {:?}", left_typed.expr_type);
-        
-        
+
             // Check if the input to the pipe is either Row or Table
             match left_typed.expr_type {
                 TypeConstruct::Row(_) | TypeConstruct::Table(_) => {
@@ -421,7 +447,6 @@ fn infer_type(expr: &Expr, scope_stack: &[HashMap<String, TypeConstruct>]) -> Re
                 }
             }
 
-        
             // Look up the function being piped to
             if let Some(func_type) = lookup_variable(pipe_name, scope_stack) {
                 if let TypeConstruct::Function(return_type, param_types) = func_type {
@@ -434,7 +459,7 @@ fn infer_type(expr: &Expr, scope_stack: &[HashMap<String, TypeConstruct>]) -> Re
                             args.len()
                         ));
                     }
-        
+
                     // Check argument types
                     for (arg, param_type) in args.iter().zip(param_types.iter()) {
                         let arg_typed = infer_type(arg, scope_stack)?;
@@ -445,13 +470,17 @@ fn infer_type(expr: &Expr, scope_stack: &[HashMap<String, TypeConstruct>]) -> Re
                             ));
                         }
                     }
-        
+
                     // Check if the output of the pipe is either Row or Table
                     match *return_type {
                         TypeConstruct::Row(_) | TypeConstruct::Table(_) => {
                             // Output is valid
                             Ok(TypedExpr {
-                                expr: Expr::Pipe(Box::new(left_typed.expr), pipe_name.clone(), args.clone()),
+                                expr: Expr::Pipe(
+                                    Box::new(left_typed.expr),
+                                    pipe_name.clone(),
+                                    args.clone(),
+                                ),
                                 expr_type: *return_type.clone(),
                             })
                         }
@@ -472,10 +501,10 @@ fn infer_type(expr: &Expr, scope_stack: &[HashMap<String, TypeConstruct>]) -> Re
         Expr::Table(params) => {
             let mut param_types = Vec::new();
             for param in params {
-                if let Parameter::Parameter(param_type, param_name) = param {
-                    param_types.push(Parameter::Parameter(param_type.clone(), param_name.clone()));
-                } else {
-                    return Err("Invalid parameter in table".to_string());
+                match param {
+                    Parameter::Parameter(param_type, param_name) => {
+                        param_types.push(Parameter::Parameter(param_type.clone(), param_name.clone()));
+                    }
                 }
             }
             Ok(TypedExpr {
@@ -497,7 +526,8 @@ fn infer_type(expr: &Expr, scope_stack: &[HashMap<String, TypeConstruct>]) -> Re
                                 param_type, typed_expr.expr_type, param_name
                             ));
                         }
-                        param_types.push(Parameter::Parameter(param_type.clone(), param_name.clone()));
+                        param_types
+                            .push(Parameter::Parameter(param_type.clone(), param_name.clone()));
                     }
                 }
             }
@@ -520,7 +550,10 @@ fn infer_type(expr: &Expr, scope_stack: &[HashMap<String, TypeConstruct>]) -> Re
                         return Err("Column name must be a string".to_string());
                     }
                     Ok(TypedExpr {
-                        expr: Expr::ColumnIndexing(Box::new(table_typed.expr), Box::new(column_typed.expr)),
+                        expr: Expr::ColumnIndexing(
+                            Box::new(table_typed.expr),
+                            Box::new(column_typed.expr),
+                        ),
                         expr_type: table_typed.expr_type.clone(), // Return the same type as the table
                     })
                 }
@@ -528,27 +561,28 @@ fn infer_type(expr: &Expr, scope_stack: &[HashMap<String, TypeConstruct>]) -> Re
             }
         }
 
-        _ => Err("Unsupported expression".to_string()),
     }
 }
 
-
-    // Helper function to look up a variable in the scope stack
-    pub fn lookup_variable(name: &str, scope_stack: &[HashMap<String, TypeConstruct>]) -> Option<TypeConstruct> {
-        for scope in scope_stack.iter().rev() {
-            if let Some(var_type) = scope.get(name) {
-                return Some(var_type.clone());
-            }
+// Helper function to look up a variable in the scope stack
+pub fn lookup_variable(
+    name: &str,
+    scope_stack: &[HashMap<String, TypeConstruct>],
+) -> Option<TypeConstruct> {
+    for scope in scope_stack.iter().rev() {
+        if let Some(var_type) = scope.get(name) {
+            return Some(var_type.clone());
         }
-        None
     }
+    None
+}
 
-    // Helper function to push a new scope onto the stack
-    fn push_scope(scope_stack: &mut Vec<HashMap<String, TypeConstruct>>) {
-        scope_stack.push(HashMap::new());
-    }
+// Helper function to push a new scope onto the stack
+fn push_scope(scope_stack: &mut Vec<HashMap<String, TypeConstruct>>) {
+    scope_stack.push(HashMap::new());
+}
 
-    // Helper function to pop the current scope off the stack
-    fn pop_scope(scope_stack: &mut Vec<HashMap<String, TypeConstruct>>) {
-        scope_stack.pop();
-    }
+// Helper function to pop the current scope off the stack
+fn pop_scope(scope_stack: &mut Vec<HashMap<String, TypeConstruct>>) {
+    scope_stack.pop();
+}

@@ -80,11 +80,10 @@ pub fn create_ast(input: &str) {
     match type_check(&syntax_tree) {
         Ok(typed_syntax_tree) => {
             println!("Type checking passed!");
-            print_syntax_tree(&typed_syntax_tree); 
+            print_syntax_tree(&typed_syntax_tree);
         }
         Err(e) => {
             eprintln!("Type checking failed: {}", e);
-            return; // Stop execution if type checking fails
         }
     }
 

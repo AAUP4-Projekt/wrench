@@ -4,7 +4,7 @@ use std::fmt::Debug;
 
 #[derive(PartialEq, Debug)]
 pub struct TypedExpr {
-    pub expr: Expr,               // Represents the expression itself               
+    pub expr: Expr,               // Represents the expression itself
     pub expr_type: TypeConstruct, // Represents the type of the expression
 }
 
