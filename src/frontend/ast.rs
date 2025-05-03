@@ -8,7 +8,7 @@ pub struct TypedExpr {
     pub expr_type: TypeConstruct, // Represents the type of the expression
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Statement {
     Expr(Box<Expr>),                       // Represents an expression statement
     VariableAssignment(String, Box<Expr>), // Represents a variable assignment with its name and value
@@ -19,14 +19,14 @@ pub enum Statement {
     While(Box<Expr>, Vec<Statement>), // Represents a while loop with its condition and body
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Declaration {
     Variable(TypeConstruct, String, Box<Expr>), // Represents a variable declaration with its type, name, and assigned value
     Constant(TypeConstruct, String, Box<Expr>), // Represents a variable declaration with its type, name, and assigned value
     Function(TypeConstruct, String, Vec<Parameter>, Vec<Statement>), // Represents a function declaration with its return type, name, parameters, and body
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Expr {
     Number(i32),                               // Represents a number
     Double(f64),                               // Represents a double value
@@ -62,7 +62,7 @@ pub enum TypeConstruct {
 }
 
 // Enum representing the different types of operations
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Operator {
     Multiplication,     // multiplication (*)
     Exponent,           // exponent (**)
@@ -85,12 +85,12 @@ Building blocks, used in other enums
 =======================================
 */
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Parameter {
     Parameter(TypeConstruct, String), // Represents a parameter with its type and name
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum ColumnAssignmentEnum {
     ColumnAssignment(TypeConstruct, String, Box<Expr>), // Represents a column assignment with its type, name, and value
 }

@@ -76,11 +76,12 @@ fn print_syntax_tree(syntax_tree: &[Statement]) {
 pub fn create_ast(input: &str) {
     // Opret syntakstræ fra input
     let syntax_tree = create_syntax_tree(input);
-    print_syntax_tree(&syntax_tree);
 
-    // Udfør type checking
     match type_check(&syntax_tree) {
-        Ok(_) => println!("Type checking passed!"),
+        Ok(typed_syntax_tree) => {
+            println!("Type checking passed!");
+            print_syntax_tree(&typed_syntax_tree); 
+        }
         Err(e) => {
             eprintln!("Type checking failed: {}", e);
             return; // Stop execution if type checking fails
@@ -223,15 +224,10 @@ mod tests {
         //Test if comments and whitespace are ignored
         // Arrange
         let expected_syntax_tree = vec![
-            Statement::Expr(Box::new(TypedExpr {
-                expr: Expr::Number(3),
-                expr_type: TypeConstruct::Int,
-            })),
-            Statement::Expr(Box::new(TypedExpr {
-                expr: Expr::Number(2),
-                expr_type: TypeConstruct::Int,
-            })),
+            Statement::Expr(Box::new(Expr::Number(3))),
+            Statement::Expr(Box::new(Expr::Number(2))),
         ];
+
         // Act
         let syntax_tree = create_syntax_tree("3;      //Comment ag \n2;");
 
