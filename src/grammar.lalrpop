@@ -129,43 +129,40 @@ Expr: Box<Expr> = {
     // Match terms like numbers, strings, parenthesized expressions, and identifiers
     #[precedence(level="0")] // Highest precedence
     TermExpr,
-
-    // Match indexing expressions e.g. a[0] or a[0][1]
-    #[precedence(level="1")] #[assoc(side="left")]
     <e:Expr> "[" <i:Expr> "]" => Box::new(Expr::Indexing(e, i)),
     <e:Expr> "pipe" <i:Identifier> "(" <x:MultipleCommaSeperated<Expr>> ")" => Box::new(Expr::Pipe(e, i, x)), // Match pipe expressions e.g. a pipe b(a, b)
     <e:Expr> "." "'" <f:Expr> "'" => Box::new(Expr::ColumnIndexing(e, f)), // Match dot expressions e.g. a.b
 
     // March ** with right-to-left associativity
-    #[precedence(level="2")] #[assoc(side="right")]
+    #[precedence(level="1")] #[assoc(side="right")]
     <e:Expr> "**" <f:Expr> => Box::new(Expr::Operation(e, Operator::Exponent, f)),
 
     // Match * or / or % with left-to-right associativity
-    #[precedence(level="3")] #[assoc(side="left")]
+    #[precedence(level="2")] #[assoc(side="left")]
     <e:Expr> "*" <f:Expr> => Box::new(Expr::Operation(e, Operator::Multiplication, f)),
     <e:Expr> "/" <f:Expr> => Box::new(Expr::Operation(e, Operator::Division, f)),
     <e:Expr> "%" <f:Expr> => Box::new(Expr::Operation(e, Operator::Modulo, f)),
 
     // Match + or - with left-to-right associativity
-    #[precedence(level="4")] #[assoc(side="left")]
+    #[precedence(level="3")] #[assoc(side="left")]
     <e:Expr> "+" <f:Expr> => Box::new(Expr::Operation(e, Operator::Addition, f)),
     <e:Expr> "-" <f:Expr> => Box::new(Expr::Operation(e, Operator::Subtraction, f)),
 
     // Match == with left-to-right associativity
-    #[precedence(level="5")] #[assoc(side="left")]
+    #[precedence(level="4")] #[assoc(side="left")]
     <e:Expr> "==" <f:Expr> => Box::new(Expr::Operation(e, Operator::Equals, f)),
     <e:Expr> "<" <f:Expr> => Box::new(Expr::Operation(e, Operator::LessThan, f)),
     <e:Expr> ">" <f:Expr> => Box::new(Expr::Operation(e, Operator::GreaterThan, f)),
     <e:Expr> "<=" <f:Expr> => Box::new(Expr::Operation(e, Operator::LessThanOrEqual, f)),
     <e:Expr> ">=" <f:Expr> => Box::new(Expr::Operation(e, Operator::GreaterThanOrEqual, f)),
 
-    #[precedence(level="6")]
+    #[precedence(level="5")]
     "!" <e:Expr> => Box::new(Expr::Not(e)),
 
-    #[precedence(level="7")] #[assoc(side="left")]
+    #[precedence(level="6")] #[assoc(side="left")]
     <e:Expr> "and" <f:Expr> => Box::new(Expr::Operation(e, Operator::And, f)),
 
-    #[precedence(level="8")] #[assoc(side="left")]
+    #[precedence(level="7")] #[assoc(side="left")]
     <e:Expr> "or" <f:Expr> => Box::new(Expr::Operation(e, Operator::Or, f)),
 };
 
