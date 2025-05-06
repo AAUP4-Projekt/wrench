@@ -1,3 +1,5 @@
+use crate::backend::evaluate::interpret;
+
 use super::ast::Statement;
 use lalrpop_util::{ParseError, lalrpop_mod};
 use logos::Logos;
@@ -81,6 +83,8 @@ pub fn create_ast(input: &str) {
         Ok(typed_syntax_tree) => {
             println!("Type checking passed!");
             print_syntax_tree(&typed_syntax_tree);
+            println!("Interpreting");
+            interpret(typed_syntax_tree);
         }
         Err(e) => {
             eprintln!("Type checking failed: {}", e);

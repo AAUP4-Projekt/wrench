@@ -11,7 +11,8 @@ fn main() {
     //let input = "4 pipe x() pipe y(x); x(3, 5, true);";
     //let input = "print(x);";
     //let input = "var int x = 5; fn int b(int b, int y){var int y = 3;}; y = 3.3;";
-    let input = "var int x = 5; fn int f(int x) { var int x = 10; };";
+    let input: &str = "var int x = 5; var int y = 7; x = y; print(x);";
+    //let input: &str = "var int x = 5; fn int f(int x) { var int x = 10; };";
     println!("Program: {}\n\nParsing:", input);
     create_ast(input);
 }
