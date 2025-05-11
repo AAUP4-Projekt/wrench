@@ -12,7 +12,7 @@ pub struct TypedExpr {
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Statement {
-    Expr(Box<Expr>),                       // Represents an expression statement
+    Expr(Box<Expr>),                               // Represents an expression statement
     VariableAssignment(String, Box<Expr>), // Represents a variable assignment with its name and value
     Declaration(Declaration),              // Represents a declaration
     Return(Box<Expr>), // Represents a return statement with an optional expression
@@ -20,7 +20,7 @@ pub enum Statement {
     For(Parameter, Box<Expr>, Box<Statement>), // Represents a for loop with its initialization, condition, and body
     While(Box<Expr>, Box<Statement>), // Represents a while loop with its condition and body
     Compound(Box<Statement>, Box<Statement>), // Represents a compound statement with two statements
-    Skip
+    Skip,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -46,7 +46,7 @@ pub enum Expr {
     Array(Vec<Box<Expr>>),          // Represents an array with its elements
     Pipe(Box<Expr>, String, Vec<Box<Expr>>), // Represents a pipe operation, e.g. for chaining operations
     FunctionCall(String, Vec<Box<Expr>>), // Represents a function call with its name and arguments
-    ColumnIndexing(Box<Expr>, String), // Represents indexing into a column of a table or row
+    ColumnIndexing(Box<Expr>, String),    // Represents indexing into a column of a table or row
 }
 
 // Enum representing types
@@ -57,7 +57,7 @@ pub enum TypeConstruct {
     Double,
     String,
     Null,
-    Array(Box<TypeConstruct>),    // Represents an array type
+    Array(Box<TypeConstruct>), // Represents an array type
     Function(Box<TypeConstruct>, Vec<TypeConstruct>), // Represents a function type with return type and parameter types
     Table(Vec<Parameter>),                            // Represents a table type with its columns
     Row(Vec<Parameter>),                              // Represents a row type with its columns
@@ -66,16 +66,16 @@ pub enum TypeConstruct {
 // Enum representing the different types of operations
 #[derive(PartialEq, Debug, Clone)]
 pub enum Operator {
-    Multiplication,     // multiplication (*)
-    Exponent,           // exponent (**)
-    Addition,           // addition (+)
-    Subtraction,        // subtraction (-)
-    Division,           // division (/)
-    Modulo,             // modulo (%)
-    Equals,             // equality (==)
-    LessThan,           // less than (<)
-    LessThanOrEqual,    // less than or equal (<=)
-    Or,                 // logical OR
+    Multiplication,  // multiplication (*)
+    Exponent,        // exponent (**)
+    Addition,        // addition (+)
+    Subtraction,     // subtraction (-)
+    Division,        // division (/)
+    Modulo,          // modulo (%)
+    Equals,          // equality (==)
+    LessThan,        // less than (<)
+    LessThanOrEqual, // less than or equal (<=)
+    Or,              // logical OR
 }
 
 /*
@@ -100,9 +100,12 @@ Helper functions for building ASTs
 =======================================
 */
 pub fn make_compound(stmts: Vec<Statement>) -> Box<Statement> {
-    stmts.into_iter().rev().fold(Box::new(Statement::Skip), |acc, stmt| {
-        Box::new(Statement::Compound(Box::new(stmt), acc))
-    })
+    stmts
+        .into_iter()
+        .rev()
+        .fold(Box::new(Statement::Skip), |acc, stmt| {
+            Box::new(Statement::Compound(Box::new(stmt), acc))
+        })
 }
 
 pub fn ast_less_than(left: Box<Expr>, right: Box<Expr>) -> Box<Expr> {

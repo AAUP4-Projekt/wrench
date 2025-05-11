@@ -14,13 +14,21 @@ pub enum ExpressionValue {
 }
 
 #[derive(Clone)]
-pub enum EnvironmentCell{
+pub enum EnvironmentCell {
     Variable(TypeConstruct, String, ExpressionValue),
-    Function(TypeConstruct, String, Vec<Parameter>, Box<Statement>, Vec<Vec<EnvironmentCell>>),
-
+    Function(
+        TypeConstruct,
+        String,
+        Vec<Parameter>,
+        Box<Statement>,
+        Vec<Vec<EnvironmentCell>>,
+    ),
 }
 
-fn env_get_optional<'a>(env: &'a mut Vec<Vec<EnvironmentCell>>, name: &str) -> Option<&'a mut EnvironmentCell> {
+fn env_get_optional<'a>(
+    env: &'a mut Vec<Vec<EnvironmentCell>>,
+    name: &str,
+) -> Option<&'a mut EnvironmentCell> {
     for scope in env.iter_mut().rev() {
         for declaration in scope.iter_mut() {
             match declaration {
@@ -48,7 +56,10 @@ pub fn env_get(env: &mut Vec<Vec<EnvironmentCell>>, name: &str) -> EnvironmentCe
     if let Some(value) = env_get_optional(env, name) {
         return value.clone();
     }
-    panic!("Interpretation error. The identifier '{:?}' not found", name);
+    panic!(
+        "Interpretation error. The identifier '{:?}' not found",
+        name
+    );
 }
 
 pub fn env_add(env: &mut Vec<Vec<EnvironmentCell>>, declaration: EnvironmentCell) {
@@ -58,7 +69,10 @@ pub fn env_add(env: &mut Vec<Vec<EnvironmentCell>>, declaration: EnvironmentCell
     };
 
     if env_get_optional(env, name).is_some() {
-        panic!("Interpretation error. The identifier '{:?}' is already declared", name);
+        panic!(
+            "Interpretation error. The identifier '{:?}' is already declared",
+            name
+        );
     }
 
     env.last_mut().unwrap().push(declaration);
@@ -76,7 +90,10 @@ pub fn env_update(env: &mut Vec<Vec<EnvironmentCell>>, name: &str, expression: E
         }
         return;
     }
-    panic!("Interpretation error. The identifier '{:?}' not found in the environment", name);
+    panic!(
+        "Interpretation error. The identifier '{:?}' not found in the environment",
+        name
+    );
 }
 
 pub fn env_expand_scope(env: &mut Vec<Vec<EnvironmentCell>>) {

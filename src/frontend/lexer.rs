@@ -170,7 +170,7 @@ fn parse_double(lex: &mut logos::Lexer<Token>) -> f64 {
 
 fn parse_string(lex: &mut logos::Lexer<Token>) -> String {
     let content = lex.slice();
-    content[1..content.len()-1].to_string() // Strip the quotes
+    content[1..content.len() - 1].to_string() // Strip the quotes
 }
 
 //Unit tests for lexer

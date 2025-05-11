@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
-pub enum TableCell{
+pub enum TableCell {
     Int(i32),
     String(String),
     Bool(bool),
@@ -31,17 +31,19 @@ impl Row {
     }
 
     pub fn get(&self, column_name: &str) -> TableCell {
-        match self.data.get(column_name){
+        match self.data.get(column_name) {
             Some(cell) => cell.clone(),
             None => panic!("Column name not found in row"),
         }
     }
 }
 
-
 impl Table {
     pub fn new(s: HashMap<String, TableCellType>) -> Self {
-        Table { data: Vec::new(), structure: s }
+        Table {
+            data: Vec::new(),
+            structure: s,
+        }
     }
 
     pub fn add_row(&mut self, row: Row) {
@@ -49,7 +51,7 @@ impl Table {
     }
 
     pub fn get_row(&self, index: usize) -> Row {
-        match self.data.get(index){
+        match self.data.get(index) {
             Some(row) => row.clone(),
             None => panic!("Row index out of bounds"),
         }

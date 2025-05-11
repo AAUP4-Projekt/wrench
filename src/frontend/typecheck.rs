@@ -112,12 +112,12 @@ pub fn type_check(statements: &[Statement]) -> Result<Vec<Statement>, String> {
             // Case for
             Statement::For(param, iterable_expr, body) => {
                 let typed_iterable = infer_type(iterable_expr, &scope_stack)?;
-            
+
                 // Match på typen af `typed_iterable.expr_type`
                 match &typed_iterable.expr_type {
                     TypeConstruct::Array(element_type) => {
                         push_scope(&mut scope_stack);
-            
+
                         // Match på parameteren
                         match param {
                             Parameter::Parameter(param_type, param_name) => {
@@ -133,15 +133,15 @@ pub fn type_check(statements: &[Statement]) -> Result<Vec<Statement>, String> {
                                     .insert(param_name.clone(), *element_type.clone());
                             }
                         }
-            
+
                         let mut typed_body = Vec::new();
                         for stmt in body {
                             let typed_stmt = type_check(&[stmt.clone()])?;
                             typed_body.extend(typed_stmt);
                         }
-            
+
                         pop_scope(&mut scope_stack);
-            
+
                         typed_statements.push(Statement::For(
                             param.clone(),
                             Box::new(typed_iterable.expr),

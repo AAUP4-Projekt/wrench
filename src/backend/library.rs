@@ -5,7 +5,7 @@
 use super::environment::ExpressionValue;
 //use csv::{Reader, StringRecord};
 
-pub fn wrench_print(args: Vec<ExpressionValue>) -> ExpressionValue{
+pub fn wrench_print(args: Vec<ExpressionValue>) -> ExpressionValue {
     for arg in args {
         match arg {
             ExpressionValue::Number(num) => println!("{}", num),

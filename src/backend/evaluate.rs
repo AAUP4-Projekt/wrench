@@ -3,20 +3,25 @@ use std::collections::HashMap;
 
 use crate::frontend::ast::{Declaration, Expr, Operator, Parameter, Statement, TypeConstruct};
 
-use super::{environment::{env_add, env_expand_scope, env_get, env_new, env_update, EnvironmentCell, ExpressionValue}, library::wrench_print, table::{Table, TableCellType}};
+use super::{
+    environment::{
+        EnvironmentCell, ExpressionValue, env_add, env_expand_scope, env_get, env_new, env_update,
+    },
+    library::wrench_print,
+    table::{Table, TableCellType},
+};
 
-const UNIMPLEMENTED_ERROR: &str = "Interpretation error: Unimplemented evaluation for abstract syntax tree node";
+const UNIMPLEMENTED_ERROR: &str =
+    "Interpretation error: Unimplemented evaluation for abstract syntax tree node";
 
-
-
-pub fn interpret(input: Statement){
+pub fn interpret(input: Statement) {
     let mut env = env_new();
     env_expand_scope(&mut env);
     evaluate_statement(Box::new(input), &mut env);
 }
 
 //Evaluate single statement
-fn evaluate_statement(statement: Box<Statement>, env: &mut Vec<Vec<EnvironmentCell>>){
+fn evaluate_statement(statement: Box<Statement>, env: &mut Vec<Vec<EnvironmentCell>>) {
     match *statement {
         Statement::Declaration(declaration) => {
             evaluate_declaration(declaration, env);
@@ -24,7 +29,7 @@ fn evaluate_statement(statement: Box<Statement>, env: &mut Vec<Vec<EnvironmentCe
         Statement::Expr(expression) => {
             evaluate_expression(*expression, env);
         }
-        Statement::VariableAssignment(variable, expression, ) => {
+        Statement::VariableAssignment(variable, expression) => {
             let evaluated_value = evaluate_expression(*expression, env);
             env_update(env, &variable, evaluated_value);
         }
@@ -32,21 +37,31 @@ fn evaluate_statement(statement: Box<Statement>, env: &mut Vec<Vec<EnvironmentCe
             evaluate_statement(s1, env);
             evaluate_statement(s2, env);
         }
-        Statement::Skip => {},
-        _ => {panic!("{}", UNIMPLEMENTED_ERROR);}
+        Statement::Skip => {}
+        _ => {
+            panic!("{}", UNIMPLEMENTED_ERROR);
+        }
     }
 }
 
-fn evaluate_declaration(declaration: Declaration, env: &mut Vec<Vec<EnvironmentCell>>){
+fn evaluate_declaration(declaration: Declaration, env: &mut Vec<Vec<EnvironmentCell>>) {
     match declaration {
         Declaration::Variable(var_type, var_name, value) => {
             let evaluated_value = evaluate_expression(*value, env);
-            env_add(env, EnvironmentCell::Variable(var_type, var_name, evaluated_value));
+            env_add(
+                env,
+                EnvironmentCell::Variable(var_type, var_name, evaluated_value),
+            );
         }
         Declaration::Function(func_type, func_name, parameters, body) => {
-            env_add(env, EnvironmentCell::Function(func_type, func_name, parameters, body, env.clone()));
+            env_add(
+                env,
+                EnvironmentCell::Function(func_type, func_name, parameters, body, env.clone()),
+            );
         }
-        _ => {panic!("{}", UNIMPLEMENTED_ERROR);}
+        _ => {
+            panic!("{}", UNIMPLEMENTED_ERROR);
+        }
     }
 }
 
@@ -55,15 +70,15 @@ fn evaluate_expression(expression: Expr, env: &mut Vec<Vec<EnvironmentCell>>) ->
         Expr::Number(n) => ExpressionValue::Number(n),
         Expr::Bool(b) => ExpressionValue::Bool(b),
         Expr::StringLiteral(s) => ExpressionValue::String(s),
-        Expr::Operation(e1,op , e2) => {
+        Expr::Operation(e1, op, e2) => {
             let left = evaluate_expression(*e1, env);
             let right = evaluate_expression(*e2, env);
             evaluate_operation(left, op, right)
-        },
-        Expr::Identifier(ref name) => {
-            match env_get(env, &name) {
-                EnvironmentCell::Variable(_, _, value) => value,
-                EnvironmentCell::Function(..) => panic!("Interpretation error: Function identifier not allowed as expression"),
+        }
+        Expr::Identifier(ref name) => match env_get(env, &name) {
+            EnvironmentCell::Variable(_, _, value) => value,
+            EnvironmentCell::Function(..) => {
+                panic!("Interpretation error: Function identifier not allowed as expression")
             }
         },
         Expr::FunctionCall(name, expressions) => {
@@ -72,50 +87,68 @@ fn evaluate_expression(expression: Expr, env: &mut Vec<Vec<EnvironmentCell>>) ->
                 args.push(evaluate_expression(*expression, env));
             }
             evaluate_function_call(name, args, env)
-        },
+        }
         Expr::Table(params) => {
             let mut structure: HashMap<String, TableCellType> = HashMap::new();
             for param in params {
                 match param {
-                    Parameter::Parameter(t, name) => {
-                        match t {
-                            TypeConstruct::Bool => {structure.insert(name.clone(), TableCellType::Bool);},
-                            TypeConstruct::Int => {structure.insert(name.clone(), TableCellType::Int);},
-                            TypeConstruct::String => {structure.insert(name.clone(), TableCellType::String);},
-                            _ => {panic!("Interpretation error: Unsupported type in table declaration")}
+                    Parameter::Parameter(t, name) => match t {
+                        TypeConstruct::Bool => {
+                            structure.insert(name.clone(), TableCellType::Bool);
                         }
-                    }
+                        TypeConstruct::Int => {
+                            structure.insert(name.clone(), TableCellType::Int);
+                        }
+                        TypeConstruct::String => {
+                            structure.insert(name.clone(), TableCellType::String);
+                        }
+                        _ => {
+                            panic!("Interpretation error: Unsupported type in table declaration")
+                        }
+                    },
                 }
             }
             ExpressionValue::Table(Table::new(structure))
-        },
-        _ => {panic!("{}", UNIMPLEMENTED_ERROR);}
+        }
+        _ => {
+            panic!("{}", UNIMPLEMENTED_ERROR);
+        }
     }
 }
 
-
-fn evaluate_function_call(name: String, args: Vec<ExpressionValue>, env: &mut Vec<Vec<EnvironmentCell>>) -> ExpressionValue {
-    match name.as_str(){
+fn evaluate_function_call(
+    name: String,
+    args: Vec<ExpressionValue>,
+    env: &mut Vec<Vec<EnvironmentCell>>,
+) -> ExpressionValue {
+    match name.as_str() {
         "print" => wrench_print(args),
         _ => {
-
             let function = env_get(env, &name);
             if let EnvironmentCell::Function(_, _, _, statement, mut closure) = function {
                 evaluate_statement(statement, &mut closure);
             } else {
-                panic!("Interpretation error: Identifier '{:?}' is not a function", name);
+                panic!(
+                    "Interpretation error: Identifier '{:?}' is not a function",
+                    name
+                );
             }
             ExpressionValue::Null
         }
     }
 }
 
-fn evaluate_operation(left: ExpressionValue, operator: Operator, right: ExpressionValue) -> ExpressionValue {
+fn evaluate_operation(
+    left: ExpressionValue,
+    operator: Operator,
+    right: ExpressionValue,
+) -> ExpressionValue {
     match operator {
         Operator::Addition => {
             if let (ExpressionValue::Number(l), ExpressionValue::Number(r)) = (&left, &right) {
                 return ExpressionValue::Number(l + r);
-            } else if let (ExpressionValue::String(l), ExpressionValue::String(r)) = (&left, &right) {
+            } else if let (ExpressionValue::String(l), ExpressionValue::String(r)) = (&left, &right)
+            {
                 return ExpressionValue::String(format!("{}{}", l, r));
             }
         }
@@ -127,9 +160,11 @@ fn evaluate_operation(left: ExpressionValue, operator: Operator, right: Expressi
         Operator::Equals => {
             if let (ExpressionValue::Bool(l), ExpressionValue::Bool(r)) = (&left, &right) {
                 return ExpressionValue::Bool(l == r);
-            } else if let (ExpressionValue::Number(l), ExpressionValue::Number(r)) = (&left, &right) {
+            } else if let (ExpressionValue::Number(l), ExpressionValue::Number(r)) = (&left, &right)
+            {
                 return ExpressionValue::Bool(l == r);
-            } else if let (ExpressionValue::String(l), ExpressionValue::String(r)) = (&left, &right) {
+            } else if let (ExpressionValue::String(l), ExpressionValue::String(r)) = (&left, &right)
+            {
                 return ExpressionValue::Bool(l == r);
             }
         }
