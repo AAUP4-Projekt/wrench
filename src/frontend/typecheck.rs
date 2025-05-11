@@ -658,8 +658,106 @@ mod tests {
         );
     }
 
+    //type casting unit tests
     #[test]
-    fn test_incompatible_type() {
-        type_error("var int myfirstinteger = 'Hello World';", "Type mismatch");
+    fn test_int_plus_double_implicit() {
+        let aritmoperation = "var int a = 5; var double b = 4.5; a + b;";
+        let tree = create_syntax_tree(aritmoperation);
+        let result = type_check(&tree);
+        assert!(result.is_ok(), "int + double is allowed");
+    }
+    #[test]
+    fn test_double_plus_int_implicit() {
+        let aritmoperation = "var int a = 3.5; var double b = 4; a + b;";
+        let tree = create_syntax_tree(aritmoperation);
+        let result = type_check(&tree);
+        assert!(result.is_ok(), "double + int is allowed");
+    }
+    #[test]
+    fn test_int_minus_double_implicit() {
+        let aritmoperation = "var int a = 5; var double b = 4.5; a + b;";
+        let tree = create_syntax_tree(aritmoperation);
+        let result = type_check(&tree);
+        assert!(result.is_ok(), "int - double is allowed");
+    }
+    #[test]
+    fn test_double_minus_int_implicit() {
+        let aritmoperation = "var int a = 3.5; var double b = 4; a + b;";
+        let tree = create_syntax_tree(aritmoperation);
+        let result = type_check(&tree);
+        assert!(result.is_ok(), "double - int is allowed");
+    }
+    #[test]
+    fn test_int_times_double_implicit() {
+        let aritmoperation = "var int a = 5; var double b = 4.5; a + b;";
+        let tree = create_syntax_tree(aritmoperation);
+        let result = type_check(&tree);
+        assert!(result.is_ok(), "int * double is allowed");
+    }
+    #[test]
+    fn test_double_times_int_implicit() {
+        let aritmoperation = "var int a = 3.5; var double b = 4; a + b;";
+        let tree = create_syntax_tree(aritmoperation);
+        let result = type_check(&tree);
+        assert!(result.is_ok(), "double * int is allowed");
+    }
+    #[test]
+    fn test_int_slash_double_implicit() {
+        let aritmoperation = "var int a = 5; var double b = 4.5; a + b;";
+        let tree = create_syntax_tree(aritmoperation);
+        let result = type_check(&tree);
+        assert!(result.is_ok(), "int * double is allowed");
+    }
+
+    #[test]
+    fn test_double_slash_int_implicit() {
+        let aritmoperation = "var int a = 3.5; var double b = 4; a + b;";
+        let tree = create_syntax_tree(aritmoperation);
+        let result = type_check(&tree);
+        assert!(result.is_ok(), "double * int is allowed");
+    }
+
+    //Legal Explicit type casting
+
+    #[test]
+    fn test_explicit_double_to_int() {
+        let source = "var double num1 = 5.4; var int num2 = (int) num1;";
+        let ast = create_syntax_tree(source);
+        let result = type_check(&tree);
+        assert!(
+            result.is_ok(),
+            "Explicit coercion from double to int successful"
+        );
+    }
+
+    #[test]
+    fn test_explicit_int_to_double() {
+        let source = "var int num1 = 5; var double num2 = (double) num1;";
+        let ast = create_syntax_tree(source);
+        let result = type_check(&tree);
+        assert!(
+            result.is_ok(),
+            "Explicit coercion from int to double successful"
+        );
+    }
+
+    //Illegal implicit narrow typecasting
+
+    #[test]
+    fn test_illegal_imp_narrowing() {
+        let code = "var double a = 7.35; var int b = a;";
+        let ast = create_syntax_tree(code);
+        let result = type_check(&tree);
+        assert!(result.is_err(), "You cannot implicitly narrow a double!"); //assert will get a bool, not an option
+    }
+
+    // String + String is not allowed!
+
+    #[test]
+    fn test_string_plus_int_should_fail() {
+        let source = "var string mystring1 = \"Hello\"; var string mystring2 = \"World\"; var string result = mystring1 + mystring2";
+        let ast = create_syntax_tree(source);
+        let result = type_check(&tree);
+        assert!(result.is_err(), "String concatination is not allowed!");
     }
 }
