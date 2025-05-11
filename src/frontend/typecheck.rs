@@ -115,12 +115,12 @@ pub fn type_check(statements: &[Statement]) -> Result<Vec<Statement>, String> {
             // Case for a for-loop
             Statement::For(param, iterable_expr, body) => {
                 let typed_iterable = infer_type(iterable_expr, &scope_stack)?;
-            
+
                 // Match på typen af `typed_iterable.expr_type`
                 match &typed_iterable.expr_type {
                     TypeConstruct::Array(element_type) => {
                         push_scope(&mut scope_stack);
-            
+
                         // Match på parameteren
                         match param {
                             Parameter::Parameter(param_type, param_name) => {
@@ -136,15 +136,15 @@ pub fn type_check(statements: &[Statement]) -> Result<Vec<Statement>, String> {
                                     .insert(param_name.clone(), *element_type.clone());
                             }
                         }
-            
+
                         let mut typed_body = Vec::new();
                         for stmt in body {
                             let typed_stmt = type_check(&[stmt.clone()])?;
                             typed_body.extend(typed_stmt);
                         }
-            
+
                         pop_scope(&mut scope_stack);
-            
+
                         typed_statements.push(Statement::For(
                             param.clone(),
                             Box::new(typed_iterable.expr),
@@ -380,6 +380,25 @@ fn infer_type(
             })
         }
 
+        //Explicit type casting such as (int) x or (double) y after initializing x as double, and y as int.
+        Expr::Cast(result_type, expr) => {
+            let original = infer_type(expr, scope_stack)?;
+
+            match (&original.expr_type, result_type) {
+                (TypeConstruct::Int, TypeConstruct::Double)
+                | (TypeConstruct::Double, TypeConstruct::Int) => Ok(TypedExpr {
+                    expr: Expr::Cast(result_type.clone(), Box::new(original.expr)),
+                    expr_type: result_type.clone(),
+                }),
+
+                //Forbid other type conversions such as bool => double or string =>bool
+                (start, finish) => Err(format!(
+                    "Incompatible type conversion betweeen {:?} and {:?}",
+                    start, finish
+                )),
+            }
+        }
+
         // Case: Indexing (e.g., `arr[0]`)
         Expr::Indexing(array_expr, index_expr) => {
             let array_typed = infer_type(array_expr, scope_stack)?;
@@ -510,7 +529,8 @@ fn infer_type(
             for param in params {
                 match param {
                     Parameter::Parameter(param_type, param_name) => {
-                        param_types.push(Parameter::Parameter(param_type.clone(), param_name.clone()));
+                        param_types
+                            .push(Parameter::Parameter(param_type.clone(), param_name.clone()));
                     }
                 }
             }
@@ -567,7 +587,6 @@ fn infer_type(
                 _ => Err("Cannot index into non-table/row type".to_string()),
             }
         }
-
     }
 }
 
@@ -597,4 +616,33 @@ fn push_scope(scope_stack: &mut Vec<HashMap<String, TypeConstruct>>) {
 // Pop means to remove the last element from the vector
 fn pop_scope(scope_stack: &mut Vec<HashMap<String, TypeConstruct>>) {
     scope_stack.pop();
+}
+
+//Unit-integration tests:
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::frontend::main::create_syntax_tree;
+
+    fn type_error(source: &str, expected_error: &str) {
+        //Parse the source code into an AST. IMPROTANT: I am assuming that parsing is correct. I only check for type errors
+        let tree = create_syntax_tree(source);
+        let type_annotated_tree = type_check(&tree);
+
+        //Assert error
+        assert!(type_annotated_tree.is_err(), "Typecheck passed");
+        let error = type_annotated_tree.err().unwrap();
+
+        assert!(
+            error.contains(expected_error),
+            "The program expected this error message : '{}', but got : '{}'",
+            expected_error,
+            error
+        );
+    }
+
+    #[test]
+    fn test_incompatible_type() {
+        type_error("var int myfirstinteger = 'Hello World';", "Type mismatch");
+    }
 }

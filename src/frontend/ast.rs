@@ -43,6 +43,7 @@ pub enum Expr {
     Pipe(Box<Expr>, String, Vec<Box<Expr>>), // Represents a pipe operation, e.g. for chaining operations
     FunctionCall(String, Vec<Box<Expr>>), // Represents a function call with its name and arguments
     ColumnIndexing(Box<Expr>, Box<Expr>), // Represents indexing into a column of a table or row
+    Cast(TypeConstruct, Box<Expr>),       //Allowing explicit casts like: int(x) when x is a double
 }
 
 // Enum representing types
