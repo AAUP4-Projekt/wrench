@@ -11,10 +11,6 @@ pub enum Token {
     #[regex(r"//[^\n]*", logos::skip)]
     Comment,
 
-    // Identifiers variables, or function names
-    #[regex("[a-zA-Z_][a-zA-Z_]*", |lex| lex.slice().to_string())]
-    Identifier(String),
-
     //Operators
     #[token("**")]
     Expon,
@@ -111,10 +107,6 @@ pub enum Token {
     #[token("in")]
     In,
 
-    //Literals
-    #[regex(r#""([^"\\]|\\.)*""#, |lex| lex.slice().to_string())] //Things like "Hello"
-    Stringliteral(String),
-
     //Punctuators
     #[token(";")]
     Semicolon,
@@ -167,6 +159,14 @@ pub enum Token {
 
     #[token(".")]
     Dot,
+
+    // Identifiers variables, or function names. DO NOT MOVE!
+    #[regex("[a-zA-Z_][a-zA-Z_]*", |lex| lex.slice().to_string())]
+    Identifier(String),
+
+    //Literals
+    #[regex(r#""([^"\\]|\\.)*""#, |lex| lex.slice().to_string())] //Things like "Hello"
+    Stringliteral(String)
 }
 
 fn parse_integer(lex: &mut logos::Lexer<Token>) -> i32 {
