@@ -373,6 +373,25 @@ fn infer_type(
             })
         }
 
+        //Explicit type casting such as (int) x or (double) y after initializing x as double, and y as int.
+        Expr::Cast(result_type, expr) => {
+            let original = infer_type(expr, scope_stack)?;
+
+            match (&original.expr_type, result_type) {
+                (TypeConstruct::Int, TypeConstruct::Double)
+                | (TypeConstruct::Double, TypeConstruct::Int) => Ok(TypedExpr {
+                    expr: Expr::Cast(result_type.clone(), Box::new(original.expr)),
+                    expr_type: result_type.clone(),
+                }),
+
+                //Forbid other type conversions such as bool => double or string =>bool
+                (start, finish) => Err(format!(
+                    "Incompatible type conversion betweeen {:?} and {:?}",
+                    start, finish
+                )),
+            }
+        }
+
         // Case: Indexing (e.g., `arr[0]`)
         Expr::Indexing(array_expr, index_expr) => {
             let array_typed = infer_type(array_expr, scope_stack)?;

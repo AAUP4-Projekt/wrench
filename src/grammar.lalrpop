@@ -187,6 +187,8 @@ TermExpr: Box<Expr> = {
     "table" "(" <p:MultipleCommaSeperated<Param>> ")" => Box::new(Expr::Table(p)),
     "[" <e:MultipleCommaSeperated<Expr>> "]" => Box::new(Expr::Array(e)), // Match array literals e.g. [1, 2, 3]
     <i:Identifier> "(" <x:MultipleCommaSeperated<Expr>> ")" => Box::new(Expr::FunctionCall(i, x)), // Match function calls e.g. f(x, y)
+    //NEW** Allowig explicit type casting.
+    "(" <t:Type> ")" <e:Expr> => Box::new(Expr::Cast(t,e)) 
     "(" <Expr> ")"
 };
 
