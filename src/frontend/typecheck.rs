@@ -297,37 +297,58 @@ fn infer_type(
             let left_typed = infer_type(left, scope_stack)?;
             let right_typed = infer_type(right, scope_stack)?;
 
-            // Make sure both sides have the same type todo: NEEDS TO BE CHANGED
-            if left_typed.expr_type != right_typed.expr_type {
-                return Err(format!(
-                    "Type mismatch in operation: left is {:?}, right is {:?}",
-                    left_typed.expr_type, right_typed.expr_type
-                ));
-            }
+            // Make sure both sides have the same type todo: NEEDS TO BE CHANGED. Update: Changed!
 
-            // Only allow arithmetic operations on Int or Double
+            let (widen_left, widen_right, result_type) = match (
+                &left_typed.expr_type,
+                &right_typed.expr_type,
+            ) {
+                //Convert left side to double
+                (TypeConstruct::Int, TypeConstruct::Double) => (
+                    Expr::Cast(TypeConstruct::Double, Box::new(left_typed.expr)),
+                    right_typed.expr,
+                    TypeConstruct::Double,
+                ),
+
+                //Convert rightv side to double
+                (TypeConstruct::Double, TypeConstruct::Int) => (
+                    left_typed.expr,
+                    Expr::Cast(TypeConstruct::Double, Box::new(right_typed.expr)),
+                    TypeConstruct::Double,
+                ),
+
+                //When types match so we have int+int or double+double
+                (type1, type2) if type1 == type2 => {
+                    (left_typed.expr, right_typed.expr, type1.clone())
+                }
+
+                //Incompatible types. Not like in JS where "Hello" + 51 = Hello51.
+                (left, right) => {
+                    return Err(format!(
+                        "Operation on incompatible types. Left-hand side is {:?} and right-hand side is {:?}",
+                        left, right
+                    ));
+                }
+            };
+
+            // Only allow arithmetic operations on Int or Double. Result needs to be numeric
             match op {
                 Operator::Addition
                 | Operator::Subtraction
                 | Operator::Multiplication
                 | Operator::Division
                 | Operator::Exponent => {
-                    if left_typed.expr_type == TypeConstruct::Int
-                        || left_typed.expr_type == TypeConstruct::Double
-                    {
+                    if result_type == TypeConstruct::Int || result_type == TypeConstruct::Double {
                         Ok(TypedExpr {
                             expr: Expr::Operation(
-                                Box::new(left_typed.expr),
+                                Box::new(widen_left),
                                 (*op).clone(),
-                                Box::new(right_typed.expr),
+                                Box::new(widen_right),
                             ),
-                            expr_type: left_typed.expr_type,
+                            expr_type: result_type,
                         })
                     } else {
-                        Err(format!(
-                            "Invalid operation for type {:?}",
-                            left_typed.expr_type
-                        ))
+                        Err(format!("Invalid operation for type {:?}", result_type))
                     }
                 }
                 _ => Err("Unsupported operator".to_string()),
