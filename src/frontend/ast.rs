@@ -44,7 +44,7 @@ pub enum Expr {
     Array(Vec<Box<Expr>>),          // Represents an array with its elements
     Pipe(Box<Expr>, String, Vec<Box<Expr>>), // Represents a pipe operation, e.g. for chaining operations
     FunctionCall(String, Vec<Box<Expr>>), // Represents a function call with its name and arguments
-    ColumnIndexing(Box<Expr>, Box<Expr>), // Represents indexing into a column of a table or row
+    ColumnIndexing(Box<Expr>, String), // Represents indexing into a column of a table or row
 }
 
 // Enum representing types

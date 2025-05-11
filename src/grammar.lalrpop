@@ -79,10 +79,8 @@ extern {
         ">" => Token::RightAngle,
         "<=" => Token::LessThanOrEqual,
         ">=" => Token::GreaterThanOrEqual,
-        "$" => Token::Dollarsign,
         "=" => Token::AssignmentOperator,
         "==" => Token::EqualsOperator,
-        "'" => Token::Singlequote,
         "." => Token::Dot,
     }
 }
@@ -136,7 +134,7 @@ Expr: Box<Expr> = {
     #[precedence(level="1")] #[assoc(side="left")]
     <e:Expr> "[" <i:Expr> "]" => Box::new(Expr::Indexing(e, i)),
     <e:Expr> "pipe" <i:Identifier> "(" <x:MultipleCommaSeperated<Expr>> ")" => Box::new(Expr::Pipe(e, i, x)), // Match pipe expressions e.g. a pipe b(a, b)
-    <e:Expr> "." "'" <f:Expr> "'" => Box::new(Expr::ColumnIndexing(e, f)), // Match dot expressions e.g. a.b
+    <e:Expr> "." <i:Identifier> => Box::new(Expr::ColumnIndexing(e, i)), // Match dot expressions e.g. a.b
 
     // March ** with right-to-left associativity
     #[precedence(level="2")] #[assoc(side="right")]

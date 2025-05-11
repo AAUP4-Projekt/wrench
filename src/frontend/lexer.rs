@@ -4,7 +4,7 @@ use logos::Logos;
 #[derive(Logos, Debug, PartialEq, Clone)]
 pub enum Token {
     //ignore whitespace
-    #[regex(r"[ \t\n\f]+", logos::skip)]
+    #[regex(r"[ \t\r\n\f]+", logos::skip)]
     Whitespace,
 
     //ignore oneline comments like this one
@@ -140,10 +140,10 @@ pub enum Token {
     #[token("]")]
     Closesquarebracket,
 
-    #[token("<")] //FOR GENERICS to be handled at parsing, not lexical analysis
+    #[token("<")]
     LeftAngle,
 
-    #[token(">")] //FOR GENERICS to be handled at parsing, not lexical analysis
+    #[token(">")]
     RightAngle,
 
     #[token("<=")]
@@ -155,15 +155,6 @@ pub enum Token {
     //Special chars
     #[token("!")]
     ExclamationMark,
-
-    #[token("?")]
-    QuestionMark,
-
-    #[token("$")]
-    Dollarsign,
-
-    #[token("'")]
-    Singlequote,
 
     #[token(".")]
     Dot,
@@ -216,11 +207,8 @@ mod tests {
 
     #[test]
     fn test_for_specialchars() {
-        let mut lexer = Token::lexer("? ! $");
-
-        assert_eq!(lexer.next(), Some(Ok(Token::QuestionMark)));
+        let mut lexer = Token::lexer("!");
         assert_eq!(lexer.next(), Some(Ok(Token::ExclamationMark)));
-        assert_eq!(lexer.next(), Some(Ok(Token::Dollarsign)));
     }
 
     #[test]

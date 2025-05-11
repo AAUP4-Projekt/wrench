@@ -69,11 +69,15 @@ pub fn create_syntax_tree(input: &str) -> Statement {
 
 //Create the AST from the input string
 pub fn run(input: &str, debug_mode: bool) {
+    if debug_mode {
+        println!("Input program:\n{}\n", input);
+    }
     // Opret syntakstræ fra input
     let syntax_tree = create_syntax_tree(input);
     // Print syntaxtree
     if debug_mode {
-        println!("Syntaxtree: {:?}", syntax_tree);
+        println!("Syntaxtree:\n{:?}\n", syntax_tree);
+        println!("Evaluating:");
     }
 
     interpret(syntax_tree);
