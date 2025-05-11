@@ -1,10 +1,13 @@
 use core::panic;
+use std::collections::HashMap;
 
-use crate::frontend::ast::{Declaration, Expr, Operator, Statement};
+use crate::frontend::ast::{Declaration, Expr, Operator, Parameter, Statement, TypeConstruct};
 
-use super::{environment::{env_add, env_expand_scope, env_get, env_new, env_update, EnvironmentCell}, library::wrench_print};
+use super::{environment::{env_add, env_expand_scope, env_get, env_new, env_update, EnvironmentCell, ExpressionValue}, library::wrench_print, table::{Table, TableCellType}};
 
 const UNIMPLEMENTED_ERROR: &str = "Interpretation error: Unimplemented evaluation for abstract syntax tree node";
+
+
 
 pub fn interpret(input: Statement){
     let mut env = env_new();
@@ -47,11 +50,11 @@ fn evaluate_declaration(declaration: Declaration, env: &mut Vec<Vec<EnvironmentC
     }
 }
 
-fn evaluate_expression(expression: Expr, env: &mut Vec<Vec<EnvironmentCell>>) -> Expr {
+fn evaluate_expression(expression: Expr, env: &mut Vec<Vec<EnvironmentCell>>) -> ExpressionValue {
     match expression {
-        Expr::Number(_) => expression,
-        Expr::Bool(_) => expression,
-        Expr::StringLiteral(_) => expression,
+        Expr::Number(n) => ExpressionValue::Number(n),
+        Expr::Bool(b) => ExpressionValue::Bool(b),
+        Expr::StringLiteral(s) => ExpressionValue::String(s),
         Expr::Operation(e1,op , e2) => {
             let left = evaluate_expression(*e1, env);
             let right = evaluate_expression(*e2, env);
@@ -62,17 +65,36 @@ fn evaluate_expression(expression: Expr, env: &mut Vec<Vec<EnvironmentCell>>) ->
                 EnvironmentCell::Variable(_, _, value) => value,
                 EnvironmentCell::Function(..) => panic!("Interpretation error: Function identifier not allowed as expression"),
             }
-        },        
-        Expr::FunctionCall(name, args) => {
-            let evaluated_args: Vec<Expr> = args.into_iter().map(|arg| evaluate_expression(*arg, env)).collect();
-            evaluate_function_call(name.to_string(), evaluated_args, env)
+        },
+        Expr::FunctionCall(name, expressions) => {
+            let mut args: Vec<ExpressionValue> = Vec::new();
+            for expression in expressions {
+                args.push(evaluate_expression(*expression, env));
+            }
+            evaluate_function_call(name, args, env)
+        },
+        Expr::Table(params) => {
+            let mut structure: HashMap<String, TableCellType> = HashMap::new();
+            for param in params {
+                match param {
+                    Parameter::Parameter(t, name) => {
+                        match t {
+                            TypeConstruct::Bool => {structure.insert(name.clone(), TableCellType::Bool);},
+                            TypeConstruct::Int => {structure.insert(name.clone(), TableCellType::Int);},
+                            TypeConstruct::String => {structure.insert(name.clone(), TableCellType::String);},
+                            _ => {panic!("Interpretation error: Unsupported type in table declaration")}
+                        }
+                    }
+                }
+            }
+            ExpressionValue::Table(Table::new(structure))
         },
         _ => {panic!("{}", UNIMPLEMENTED_ERROR);}
     }
 }
 
 
-fn evaluate_function_call(name: String, args: Vec<Expr>, env: &mut Vec<Vec<EnvironmentCell>>) -> Expr {
+fn evaluate_function_call(name: String, args: Vec<ExpressionValue>, env: &mut Vec<Vec<EnvironmentCell>>) -> ExpressionValue {
     match name.as_str(){
         "print" => wrench_print(args),
         _ => {
@@ -83,34 +105,32 @@ fn evaluate_function_call(name: String, args: Vec<Expr>, env: &mut Vec<Vec<Envir
             } else {
                 panic!("Interpretation error: Identifier '{:?}' is not a function", name);
             }
-            Expr::Null
+            ExpressionValue::Null
         }
     }
 }
 
-fn evaluate_operation(left: Expr, operator: Operator, right: Expr) -> Expr {
+fn evaluate_operation(left: ExpressionValue, operator: Operator, right: ExpressionValue) -> ExpressionValue {
     match operator {
         Operator::Addition => {
-            if let (Expr::Number(l), Expr::Number(r)) = (&left, &right) {
-                return Expr::Number(l + r);
-            } else if let (Expr::Double(l), Expr::Double(r)) = (&left, &right) {
-                return Expr::Double(l + r);
-            } else if let (Expr::StringLiteral(l), Expr::StringLiteral(r)) = (&left, &right) {
-                return Expr::StringLiteral(format!("{}{}", l, r));
+            if let (ExpressionValue::Number(l), ExpressionValue::Number(r)) = (&left, &right) {
+                return ExpressionValue::Number(l + r);
+            } else if let (ExpressionValue::String(l), ExpressionValue::String(r)) = (&left, &right) {
+                return ExpressionValue::String(format!("{}{}", l, r));
             }
         }
         Operator::Or => {
-            if let (Expr::Bool(l), Expr::Bool(r)) = (left, right) {
-                return Expr::Bool(l || r);
+            if let (ExpressionValue::Bool(l), ExpressionValue::Bool(r)) = (left, right) {
+                return ExpressionValue::Bool(l || r);
             }
         }
         Operator::Equals => {
-            if let (Expr::Bool(l), Expr::Bool(r)) = (&left, &right) {
-                return Expr::Bool(l == r);
-            } else if let (Expr::Number(l), Expr::Number(r)) = (&left, &right) {
-                return Expr::Bool(l == r);
-            } else if let (Expr::StringLiteral(l), Expr::StringLiteral(r)) = (&left, &right) {
-                return Expr::Bool(l == r);
+            if let (ExpressionValue::Bool(l), ExpressionValue::Bool(r)) = (&left, &right) {
+                return ExpressionValue::Bool(l == r);
+            } else if let (ExpressionValue::Number(l), ExpressionValue::Number(r)) = (&left, &right) {
+                return ExpressionValue::Bool(l == r);
+            } else if let (ExpressionValue::String(l), ExpressionValue::String(r)) = (&left, &right) {
+                return ExpressionValue::Bool(l == r);
             }
         }
         _ => {}

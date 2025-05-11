@@ -1,3 +1,5 @@
+#![allow(clippy::dead_code)]
+
 use std::{env, fs};
 
 use frontend::main::run;

@@ -2,9 +2,20 @@ use core::panic;
 
 use crate::frontend::ast::{Expr, Parameter, Statement, TypeConstruct};
 
-#[derive(PartialEq, Debug, Clone)]
+use super::table::Table;
+
+#[derive(Clone)]
+pub enum ExpressionValue {
+    Number(i32),
+    String(String),
+    Bool(bool),
+    Table(Table),
+    Null,
+}
+
+#[derive(Clone)]
 pub enum EnvironmentCell{
-    Variable(TypeConstruct, String, Expr),
+    Variable(TypeConstruct, String, ExpressionValue),
     Function(TypeConstruct, String, Vec<Parameter>, Box<Statement>, Vec<Vec<EnvironmentCell>>),
 
 }
@@ -53,7 +64,7 @@ pub fn env_add(env: &mut Vec<Vec<EnvironmentCell>>, declaration: EnvironmentCell
     env.last_mut().unwrap().push(declaration);
 }
 
-pub fn env_update(env: &mut Vec<Vec<EnvironmentCell>>, name: &str, expression: Expr) {
+pub fn env_update(env: &mut Vec<Vec<EnvironmentCell>>, name: &str, expression: ExpressionValue) {
     if let Some(existing_declaration) = env_get_optional(env, name) {
         match existing_declaration {
             EnvironmentCell::Variable(_, _, var_expr) => {
