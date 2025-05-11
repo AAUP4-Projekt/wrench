@@ -5,7 +5,7 @@ use crate::frontend::ast::{Expr, Parameter, Statement, TypeConstruct};
 #[derive(PartialEq, Debug, Clone)]
 pub enum EnvironmentCell{
     Variable(TypeConstruct, String, Expr),
-    Function(TypeConstruct, String, Vec<Parameter>, Vec<Statement>, Vec<Vec<EnvironmentCell>>),
+    Function(TypeConstruct, String, Vec<Parameter>, Box<Statement>, Vec<Vec<EnvironmentCell>>),
 
 }
 
@@ -37,7 +37,7 @@ pub fn env_get(env: &mut Vec<Vec<EnvironmentCell>>, name: &str) -> EnvironmentCe
     if let Some(value) = env_get_optional(env, name) {
         return value.clone();
     }
-    panic!("Interpretation error. The identifier '{:?}' not found in the environment", name);
+    panic!("Interpretation error. The identifier '{:?}' not found", name);
 }
 
 pub fn env_add(env: &mut Vec<Vec<EnvironmentCell>>, declaration: EnvironmentCell) {
@@ -47,7 +47,7 @@ pub fn env_add(env: &mut Vec<Vec<EnvironmentCell>>, declaration: EnvironmentCell
     };
 
     if env_get_optional(env, name).is_some() {
-        panic!("Interpretation error. The identifier '{:?}' is already declared in the current scope", name);
+        panic!("Interpretation error. The identifier '{:?}' is already declared", name);
     }
 
     env.last_mut().unwrap().push(declaration);
@@ -73,9 +73,5 @@ pub fn env_expand_scope(env: &mut Vec<Vec<EnvironmentCell>>) {
 }
 
 pub fn env_shrink_scope(env: &mut Vec<Vec<EnvironmentCell>>) {
-    if env.len() > 1 {
-        env.pop();
-    } else {
-        panic!("Interpretation error. Cannot shrink the global scope");
-    }
+    env.pop();
 }

@@ -112,7 +112,7 @@ pub enum Token {
     In,
 
     //Literals
-    #[regex(r#""([^"\\]|\\.)*""#, |lex| lex.slice().to_string())] //Things like "Hello"
+    #[regex(r#""([^"\\]|\\.)*""#, callback = parse_string)] //Things like "Hello"
     Stringliteral(String),
 
     //Punctuators
@@ -170,11 +170,16 @@ pub enum Token {
 }
 
 fn parse_integer(lex: &mut logos::Lexer<Token>) -> i32 {
-    lex.slice().parse().unwrap_or(0)
+    lex.slice().parse().unwrap()
 }
 
 fn parse_double(lex: &mut logos::Lexer<Token>) -> f64 {
     lex.slice().parse().unwrap()
+}
+
+fn parse_string(lex: &mut logos::Lexer<Token>) -> String {
+    let content = lex.slice();
+    content[1..content.len()-1].to_string() // Strip the quotes
 }
 
 //Unit tests for lexer

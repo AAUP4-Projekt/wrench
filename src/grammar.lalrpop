@@ -5,6 +5,10 @@ use crate::frontend::ast::TypeConstruct;
 use crate::frontend::ast::Declaration;
 use crate::frontend::ast::Parameter;
 use crate::frontend::ast::ColumnAssignmentEnum;
+use crate::frontend::ast::make_compound;
+use crate::frontend::ast::ast_and;
+use crate::frontend::ast::ast_greater_than_or_equal;
+use crate::frontend::ast::ast_greater_than;
 use crate::frontend::lexer::Token;
 
 // This beings the grammer definition used by lalrpop
@@ -75,17 +79,17 @@ extern {
         ">" => Token::RightAngle,
         "<=" => Token::LessThanOrEqual,
         ">=" => Token::GreaterThanOrEqual,
-        "?" => Token::QuestionMark,
         "$" => Token::Dollarsign,
         "=" => Token::AssignmentOperator,
+        "==" => Token::EqualsOperator,
         "'" => Token::Singlequote,
         "." => Token::Dot,
     }
 }
 
-pub Program: Vec<Statement> = {
+pub Program: Statement = {
     // Match one or more statements
-    <s:Stmt +> => s,
+    <s:Stmt *> => *make_compound(s),
 };
 
 Stmt: Statement = {
@@ -93,10 +97,10 @@ Stmt: Statement = {
     <e:Expr> ";" => Statement::Expr(e),
     <e:Decl> ";" => Statement::Declaration(e), // Match a declaration followed by a semicolon
     <i:Identifier> "=" <e:Expr> ";" => Statement::VariableAssignment(i, e), // Variable assignment E.g. x = 5;
-    "return" <e:Expr?> ";" => Statement::Return(e), // Match a return statement with no expression
-    "if" "(" <e:Expr> ")" "{" <s:Stmt *> "}" <f:ElseBlock?> => Statement::If(e, s, f), // Match an if statement with a block of statements
-    "for" "(" <p:Param> "in" <e:Expr> ")" "{" <s:Stmt *> "}" => Statement::For(p, e, s), // Match a for loop with a block of statements
-    "while" "(" <e:Expr> ")" "{" <s:Stmt *> "}" => Statement::While(e, s), // Match a while loop with a block of statements
+    "return" <e:Expr> ";" => Statement::Return(e), // Match a return statement with no expression
+    "if" "(" <e:Expr> ")" "{" <s:Stmt *> "}" <f:ElseBlock?> => Statement::If(e, make_compound(s), f.unwrap_or_else(|| Box::new(Statement::Skip))),
+    "for" "(" <p:Param> "in" <e:Expr> ")" "{" <s:Stmt *> "}" => Statement::For(p, e, make_compound(s)), // Match a for loop with a block of statements
+    "while" "(" <e:Expr> ")" "{" <s:Stmt *> "}" => Statement::While(e, make_compound(s)), // Match a while loop with a block of statements
 };
 
 Decl: Declaration = {
@@ -105,7 +109,7 @@ Decl: Declaration = {
     // Constant declaration e.g. const int x = 5;
     "const" <t:Type> <i:Identifier> "=" <e:Expr> => Declaration::Constant(t, i, e), // Constant declaration E.g. const int x = 5;
     // Match function declarations e.g. fn int add(int a, int b) { return a + b; }
-    "fn" <t:Type> <i:Identifier> "(" <p:MultipleCommaSeperated<Param>> ")" "{" <s:Stmt *> "}" => Declaration::Function(t, i, p, s), // Function declaration E.g. fn int add(int a, int b) { return a + b; }
+    "fn" <t:Type> <i:Identifier> "(" <p:MultipleCommaSeperated<Param>> ")" "{" <s:Stmt *> "}" => Declaration::Function(t, i, p, make_compound(s)), // Function declaration E.g. fn int add(int a, int b) { return a + b; }
 }
 
 Type: TypeConstruct = {
@@ -115,8 +119,6 @@ Type: TypeConstruct = {
     "double" => TypeConstruct::Double,
     "string" => TypeConstruct::String,
     "null" => TypeConstruct::Null,
-    "<" <i:Identifier> ">" => TypeConstruct::Generic(i), // Match table types e.g. <table>
-    <t:Type> "?" => TypeConstruct::Optional(Box::new(t)), // Match optional types e.g. int?
     <t:Type> "[" "]" => TypeConstruct::Array(Box::new(t)), // Match array types e.g. int[]
     "fn" <t:Type> "(" <p:MultipleCommaSeperated<Type>> ")" => TypeConstruct::Function(Box::new(t), p), // Match function types e.g. fn int(int, int)
     "table" "(" <p:MultipleCommaSeperated<Param>> ")" => TypeConstruct::Table(p), // Match table types e.g. table(int, string)
@@ -154,16 +156,19 @@ Expr: Box<Expr> = {
     // Match == with left-to-right associativity
     #[precedence(level="5")] #[assoc(side="left")]
     <e:Expr> "==" <f:Expr> => Box::new(Expr::Operation(e, Operator::Equals, f)),
-    <e:Expr> "<" <f:Expr> => Box::new(Expr::Operation(e, Operator::LessThan, f)),
-    <e:Expr> ">" <f:Expr> => Box::new(Expr::Operation(e, Operator::GreaterThan, f)),
-    <e:Expr> "<=" <f:Expr> => Box::new(Expr::Operation(e, Operator::LessThanOrEqual, f)),
-    <e:Expr> ">=" <f:Expr> => Box::new(Expr::Operation(e, Operator::GreaterThanOrEqual, f)),
 
+    <e:Expr> "<" <f:Expr> => Box::new(Expr::Operation(e, Operator::LessThan, f)),
+
+    <e:Expr> ">" <f:Expr> => ast_greater_than(e, f),
+
+    <e:Expr> "<=" <f:Expr> => Box::new(Expr::Operation(e, Operator::LessThanOrEqual, f,)),
+
+    <e:Expr> ">=" <f:Expr> => ast_greater_than_or_equal(e, f),
     #[precedence(level="6")]
     "!" <e:Expr> => Box::new(Expr::Not(e)),
 
     #[precedence(level="7")] #[assoc(side="left")]
-    <e:Expr> "and" <f:Expr> => Box::new(Expr::Operation(e, Operator::And, f)),
+    <e:Expr> "and" <f:Expr> => ast_and(e, f),
 
     #[precedence(level="8")] #[assoc(side="left")]
     <e:Expr> "or" <f:Expr> => Box::new(Expr::Operation(e, Operator::Or, f)),
@@ -218,6 +223,6 @@ ColumnAssignment: ColumnAssignmentEnum = {
 };
 
 // Else block used in if statement
-ElseBlock: Vec<Statement> = {
-    "else" "{" <f:Stmt*> "}" => f,
+ElseBlock: Box<Statement> = {
+    "else" "{" <f:Stmt*> "}" => make_compound(f),
 };

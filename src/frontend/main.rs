@@ -5,7 +5,7 @@ use lalrpop_util::{ParseError, lalrpop_mod};
 use logos::Logos;
 
 use super::lexer::Token;
-use super::typecheck::type_check;
+//use super::typecheck::type_check;
 
 lalrpop_mod!(#[allow(clippy::all)] pub grammar);
 
@@ -24,7 +24,7 @@ fn lex(input: &str) -> Vec<(usize, Token, usize)> {
     tokens
 }
 
-fn parse(tokens: Vec<(usize, Token, usize)>) -> Vec<Statement> {
+fn parse(tokens: Vec<(usize, Token, usize)>) -> Statement {
     let parser = grammar::ProgramParser::new();
     match parser.parse(tokens) {
         Ok(program) => program,
@@ -60,25 +60,25 @@ fn parse(tokens: Vec<(usize, Token, usize)>) -> Vec<Statement> {
 }
 
 //Lex tokens from input and parse them into a syntax tree
-pub fn create_syntax_tree(input: &str) -> Vec<Statement> {
+pub fn create_syntax_tree(input: &str) -> Statement {
     //Collect tokens
     let tokens = lex(input);
     //Parse tokens and return the syntax tree
     parse(tokens)
 }
 
-//Print the syntax tree for debugging purposes
-fn print_syntax_tree(syntax_tree: &[Statement]) {
-    for (i, statement) in syntax_tree.iter().enumerate() {
-        println!("Statement {}: {:?}", i + 1, statement);
-    }
-}
-
 //Create the AST from the input string
-pub fn create_ast(input: &str) {
+pub fn run(input: &str, debug_mode: bool) {
     // Opret syntakstræ fra input
     let syntax_tree = create_syntax_tree(input);
+    // Print syntaxtree
+    if debug_mode {
+        println!("Syntaxtree: {:?}", syntax_tree);
+    }
 
+    interpret(syntax_tree);
+
+    /*
     match type_check(&syntax_tree) {
         Ok(typed_syntax_tree) => {
             println!("Type checking passed!");
@@ -90,8 +90,7 @@ pub fn create_ast(input: &str) {
             eprintln!("Type checking failed: {}", e);
         }
     }
-
-    // TODO: Returner eller brug AST'en efter type checking
+    */
 }
 
 /*

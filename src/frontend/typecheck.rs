@@ -1,3 +1,4 @@
+/*
 // Import HashMap to keep track of variable types and their types
 use std::collections::HashMap;
 // Import the AST types
@@ -586,3 +587,4 @@ fn push_scope(scope_stack: &mut Vec<HashMap<String, TypeConstruct>>) {
 fn pop_scope(scope_stack: &mut Vec<HashMap<String, TypeConstruct>>) {
     scope_stack.pop();
 }
+*/
