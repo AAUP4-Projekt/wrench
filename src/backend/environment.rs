@@ -1,48 +1,62 @@
-use crate::frontend::ast::{Declaration, Expr};
+use core::panic;
 
-fn env_get_optional<'a>(env: &'a mut Vec<Vec<Declaration>>, name: &str) -> Option<&'a mut Declaration> {
+use crate::frontend::ast::{Expr, Parameter, Statement, TypeConstruct};
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum EnvironmentCell{
+    Variable(TypeConstruct, String, Expr),
+    Function(TypeConstruct, String, Vec<Parameter>, Vec<Statement>, Vec<Vec<EnvironmentCell>>),
+
+}
+
+fn env_get_optional<'a>(env: &'a mut Vec<Vec<EnvironmentCell>>, name: &str) -> Option<&'a mut EnvironmentCell> {
     for scope in env.iter_mut().rev() {
         for declaration in scope.iter_mut() {
             match declaration {
-                Declaration::Variable(_, var_name, _) if name == *var_name => {
-                    return Some(declaration);
+                EnvironmentCell::Variable(_, var_name, _) => {
+                    if var_name == name {
+                        return Some(declaration);
+                    }
                 }
-                Declaration::Constant(_, const_name, _) if name == *const_name => {
-                    return Some(declaration);
+                EnvironmentCell::Function(_, func_name, _, _, _) => {
+                    if func_name == name {
+                        return Some(declaration);
+                    }
                 }
-                Declaration::Function(_, func_name, _, _) if name == *func_name => {
-                    return Some(declaration);
-                }
-                _ => {}
             }
         }
     }
     None
 }
 
-pub fn env_get(env: &mut Vec<Vec<Declaration>>, name: &str) -> Declaration {
+pub fn env_new() -> Vec<Vec<EnvironmentCell>> {
+    Vec::new()
+}
+
+pub fn env_get(env: &mut Vec<Vec<EnvironmentCell>>, name: &str) -> EnvironmentCell {
     if let Some(value) = env_get_optional(env, name) {
         return value.clone();
     }
     panic!("Interpretation error. The identifier '{:?}' not found in the environment", name);
 }
 
-pub fn env_add(env: &mut Vec<Vec<Declaration>>, declaration: Declaration) {
+pub fn env_add(env: &mut Vec<Vec<EnvironmentCell>>, declaration: EnvironmentCell) {
     let name = match &declaration {
-        Declaration::Variable(_, var_name, _) => var_name,
-        Declaration::Constant(_, const_name, _) => const_name,
-        Declaration::Function(_, func_name, _, _) => func_name,
+        EnvironmentCell::Variable(_, var_name, _) => var_name,
+        EnvironmentCell::Function(_, func_name, _, _, _) => func_name,
     };
+
     if env_get_optional(env, name).is_some() {
         panic!("Interpretation error. The identifier '{:?}' is already declared in the current scope", name);
     }
+
     env.last_mut().unwrap().push(declaration);
 }
 
-pub fn env_update(env: &mut Vec<Vec<Declaration>>, name: &str, expression: Box<Expr>) {
+pub fn env_update(env: &mut Vec<Vec<EnvironmentCell>>, name: &str, expression: Expr) {
     if let Some(existing_declaration) = env_get_optional(env, name) {
         match existing_declaration {
-            Declaration::Variable(_, _, var_expr) => {
+            EnvironmentCell::Variable(_, _, var_expr) => {
                 *var_expr = expression;
             }
             _ => {
@@ -54,11 +68,11 @@ pub fn env_update(env: &mut Vec<Vec<Declaration>>, name: &str, expression: Box<E
     panic!("Interpretation error. The identifier '{:?}' not found in the environment", name);
 }
 
-pub fn env_expand_scope(env: &mut Vec<Vec<Declaration>>) {
+pub fn env_expand_scope(env: &mut Vec<Vec<EnvironmentCell>>) {
     env.push(Vec::new());
 }
 
-pub fn env_shrink_scope(env: &mut Vec<Vec<Declaration>>) {
+pub fn env_shrink_scope(env: &mut Vec<Vec<EnvironmentCell>>) {
     if env.len() > 1 {
         env.pop();
     } else {

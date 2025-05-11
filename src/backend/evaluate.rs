@@ -1,19 +1,26 @@
+use core::panic;
+
 use crate::frontend::ast::{Expr, Statement, Declaration};
 
-use super::{environment::{env_get, env_update}, library::wrench_print};
+use super::{environment::{env_add, env_expand_scope, env_get, env_new, env_update, EnvironmentCell}, library::wrench_print};
 
-
+const UNIMPLEMENTED_ERROR: &str = "Interpretation error: Unimplemented evaluation for abstract syntax tree node";
 
 pub fn interpret(input: Vec<Statement>){
-    let mut env: Vec<Vec<Declaration>> = Vec::new(); // Initialize the environment stack
-    env.push(Vec::new()); // Push the global scope
+    let mut env = env_new();
+    env_expand_scope(&mut env);
+    evaluate_statements(input, &mut env);
+}
 
-    for statement in input {
-        evaluate_statement(statement, &mut env);
+//Evaluate multiplie statements sequentially
+fn evaluate_statements(statements: Vec<Statement>, env: &mut Vec<Vec<EnvironmentCell>>) {
+    for statement in statements {
+        evaluate_statement(statement, env);
     }
 }
 
-fn evaluate_statement(statement: Statement, env: &mut Vec<Vec<Declaration>>){
+//Evaluate single statement
+fn evaluate_statement(statement: Statement, env: &mut Vec<Vec<EnvironmentCell>>){
     match statement {
         Statement::Declaration(declaration) => {
             evaluate_declaration(declaration, env);
@@ -23,44 +30,55 @@ fn evaluate_statement(statement: Statement, env: &mut Vec<Vec<Declaration>>){
         }
         Statement::VariableAssignment(variable, expression, ) => {
             let evaluated_value = evaluate_expression(*expression, env);
-            env_update(env, &variable, Box::new(evaluated_value));
+            env_update(env, &variable, evaluated_value);
         }
-        _ => {}
+        _ => {panic!("{}", UNIMPLEMENTED_ERROR);}
     }
 }
 
-fn evaluate_declaration(declaration: Declaration, env: &mut Vec<Vec<Declaration>>){
+fn evaluate_declaration(declaration: Declaration, env: &mut Vec<Vec<EnvironmentCell>>){
     match declaration {
         Declaration::Variable(var_type, var_name, value) => {
             let evaluated_value = evaluate_expression(*value, env);
-            env.last_mut().unwrap().push(Declaration::Variable(var_type, var_name, Box::new(evaluated_value)));
+            env_add(env, EnvironmentCell::Variable(var_type, var_name, evaluated_value));
         }
-        _ => {}
+        Declaration::Function(func_type, func_name, parameters, body) => {
+            env_add(env, EnvironmentCell::Function(func_type, func_name, parameters, body, env.clone()));
+        }
+        _ => {panic!("{}", UNIMPLEMENTED_ERROR);}
     }
 }
 
-fn evaluate_expression(expression: Expr, env: &mut Vec<Vec<Declaration>>) -> Expr {
+fn evaluate_expression(expression: Expr, env: &mut Vec<Vec<EnvironmentCell>>) -> Expr {
     match expression {
         Expr::Number(_) => expression,
         Expr::FunctionCall(name, args) => {
             let evaluated_args: Vec<Expr> = args.into_iter().map(|arg| evaluate_expression(*arg, env)).collect();
-            evaluate_function_call(name.to_string(), evaluated_args)
+            evaluate_function_call(name.to_string(), evaluated_args, env)
         },
         Expr::Identifier(ref name) => {
             match env_get(env, &name) {
-                Declaration::Variable(_, _, value) => *value,
-                Declaration::Constant(_, _, value) => *value,
-                Declaration::Function(_, _, _, _) => expression.clone(),
+                EnvironmentCell::Variable(_, _, value) => value,
+                EnvironmentCell::Function(..) => panic!("Interpretation error: Function identifier not allowed as expression"),
             }
         },
-        _ => panic!("Unsupported expression type {:?}", expression),
+        _ => {panic!("{}", UNIMPLEMENTED_ERROR);}
     }
 }
 
 
-fn evaluate_function_call(name: String, args: Vec<Expr>) -> Expr {
+fn evaluate_function_call(name: String, args: Vec<Expr>, env: &mut Vec<Vec<EnvironmentCell>>) -> Expr {
     match name.as_str(){
         "print" => wrench_print(args),
-        _ => panic!("Function {} not found", name),
+        _ => {
+
+            let function = env_get(env, &name);
+            if let EnvironmentCell::Function(_, _, _, statements, mut closure) = function {
+                evaluate_statements(statements, &mut closure);
+            } else {
+                panic!("Interpretation error: Identifier '{:?}' is not a function", name);
+            }
+            Expr::Null
+        }
     }
 }
