@@ -638,91 +638,76 @@ fn pop_scope(scope_stack: &mut Vec<HashMap<String, TypeConstruct>>) {
 //Unit-integration tests:
 #[cfg(test)]
 mod tests {
+    use std::result;
+
     use super::*;
     use crate::frontend::main::create_syntax_tree;
 
-    fn type_error(source: &str, expected_error: &str) {
-        //Parse the source code into an AST. IMPROTANT: I am assuming that parsing is correct. I only check for type errors
-        let tree = create_syntax_tree(source);
-        let type_annotated_tree = type_check(&tree);
-
-        //Assert error
-        assert!(type_annotated_tree.is_err(), "Typecheck passed");
-        let error = type_annotated_tree.err().unwrap();
-
-        assert!(
-            error.contains(expected_error),
-            "The program expected this error message : '{}', but got : '{}'",
-            expected_error,
-            error
-        );
-    }
-
     //type casting unit tests
     #[test]
-    fn test_int_plus_double_implicit() {
+    fn test_legal_int_plus_double_implicit() {
         let aritmoperation = "var int a = 5; var double b = 4.5; a + b;";
         let tree = create_syntax_tree(aritmoperation);
         let result = type_check(&tree);
         assert!(result.is_ok(), "int + double is allowed");
     }
     #[test]
-    fn test_double_plus_int_implicit() {
-        let aritmoperation = "var int a = 3.5; var double b = 4; a + b;";
+    fn test_legal_double_plus_int_implicit() {
+        let aritmoperation = "var double a = 3.5; var int b = 4; a + b;";
         let tree = create_syntax_tree(aritmoperation);
         let result = type_check(&tree);
         assert!(result.is_ok(), "double + int is allowed");
     }
     #[test]
-    fn test_int_minus_double_implicit() {
-        let aritmoperation = "var int a = 5; var double b = 4.5; a + b;";
+    fn test_legal_int_minus_double_implicit() {
+        let aritmoperation = "var int a = 5; var double b = 4.5; a - b;";
         let tree = create_syntax_tree(aritmoperation);
         let result = type_check(&tree);
         assert!(result.is_ok(), "int - double is allowed");
     }
     #[test]
-    fn test_double_minus_int_implicit() {
-        let aritmoperation = "var int a = 3.5; var double b = 4; a + b;";
+    fn test_legal_double_minus_int_implicit() {
+        let aritmoperation = "var double a = 3.5; var int b = 4; a - b;";
         let tree = create_syntax_tree(aritmoperation);
         let result = type_check(&tree);
         assert!(result.is_ok(), "double - int is allowed");
     }
     #[test]
-    fn test_int_times_double_implicit() {
-        let aritmoperation = "var int a = 5; var double b = 4.5; a + b;";
+    fn test_legal_int_times_double_implicit() {
+        let aritmoperation = "var int a = 5; var double b = 4.5; a * b;";
         let tree = create_syntax_tree(aritmoperation);
         let result = type_check(&tree);
         assert!(result.is_ok(), "int * double is allowed");
     }
     #[test]
-    fn test_double_times_int_implicit() {
-        let aritmoperation = "var int a = 3.5; var double b = 4; a + b;";
+    fn test_legal_double_times_int_implicit() {
+        let aritmoperation = "var double a = 3.5; var int b = 4; a * b;";
         let tree = create_syntax_tree(aritmoperation);
         let result = type_check(&tree);
         assert!(result.is_ok(), "double * int is allowed");
     }
     #[test]
-    fn test_int_slash_double_implicit() {
-        let aritmoperation = "var int a = 5; var double b = 4.5; a + b;";
+    fn test_legal_int_slash_double_implicit() {
+        let aritmoperation = "var int a = 5; var double b = 4.5; a / b;";
         let tree = create_syntax_tree(aritmoperation);
         let result = type_check(&tree);
-        assert!(result.is_ok(), "int * double is allowed");
+        assert!(result.is_ok(), "int / double is allowed");
     }
 
     #[test]
-    fn test_double_slash_int_implicit() {
-        let aritmoperation = "var int a = 3.5; var double b = 4; a + b;";
+    fn test_legal_double_slash_int_implicit() {
+        let aritmoperation = "var double a = 3.5; var int b = 4; a / b;";
         let tree = create_syntax_tree(aritmoperation);
         let result = type_check(&tree);
-        assert!(result.is_ok(), "double * int is allowed");
+        assert!(result.is_ok(), "double / int is allowed");
     }
 
     //Legal Explicit type casting
 
     #[test]
-    fn test_explicit_double_to_int() {
+    fn test_legal_explicit_double_to_int() {
         let source = "var double num1 = 5.4; var int num2 = (int) num1;";
-        let ast = create_syntax_tree(source);
+        let tree = create_syntax_tree(source);
         let result = type_check(&tree);
         assert!(
             result.is_ok(),
@@ -731,9 +716,9 @@ mod tests {
     }
 
     #[test]
-    fn test_explicit_int_to_double() {
+    fn test_legal_explicit_int_to_double() {
         let source = "var int num1 = 5; var double num2 = (double) num1;";
-        let ast = create_syntax_tree(source);
+        let tree = create_syntax_tree(source);
         let result = type_check(&tree);
         assert!(
             result.is_ok(),
@@ -744,9 +729,9 @@ mod tests {
     //Illegal implicit narrow typecasting
 
     #[test]
-    fn test_illegal_imp_narrowing() {
+    fn test_illegal_implicit_narrowing() {
         let code = "var double a = 7.35; var int b = a;";
-        let ast = create_syntax_tree(code);
+        let tree = create_syntax_tree(code);
         let result = type_check(&tree);
         assert!(result.is_err(), "You cannot implicitly narrow a double!"); //assert will get a bool, not an option
     }
@@ -754,10 +739,102 @@ mod tests {
     // String + String is not allowed!
 
     #[test]
-    fn test_string_plus_int_should_fail() {
-        let source = "var string mystring1 = \"Hello\"; var string mystring2 = \"World\"; var string result = mystring1 + mystring2";
-        let ast = create_syntax_tree(source);
+    fn test_illegal_string_plus_string() {
+        let source = "var string mystring1 = \"Hello\"; var string mystring2 = \"World\"; var string result = mystring1 + mystring2;";
+        let tree = create_syntax_tree(source);
         let result = type_check(&tree);
-        assert!(result.is_err(), "String concatination is not allowed!");
+        assert!(result.is_err(), "String concatenation is not allowed!");
+    }
+
+    #[test]
+    fn test_illegal_int_plus_string() {
+        let source = r#"
+        var int myinteger = 10;
+        var string mystring = "Hello?";
+        var int result = myinteger + mystring;
+    "#;
+        let tree = create_syntax_tree(source);
+        let result = type_check(&tree);
+
+        assert!(result.is_err(), "You cannot perform int + string");
+    }
+
+    #[test]
+    fn test_illegal_assign_string_to_int() {
+        let source = r#"var int x = "Hello World";"#;
+        let tree = create_syntax_tree(source);
+        let result = type_check(&tree);
+
+        assert!(
+            result.is_err(),
+            "Type of variable does not match expression type! Assignment cannot be performed."
+        );
+    }
+
+    #[test]
+    fn test_illegal_bool_operation() {
+        let source = r#"
+        var int x = 5000;
+        var string y = "Aalborg University";
+        var bool a = x <= y;
+        var bool b = x == y;
+        var bool c = x or y;
+        var bool d = x and y;
+        "#;
+        let tree = create_syntax_tree(source);
+        let result = type_check(&tree);
+
+        assert!(
+            result.is_err(),
+            "Boolean operation on incompatible types not allowed!"
+        );
+    }
+
+    #[test]
+    fn test_illegal_array_index() {
+        let source = r#" var bool index = true; var string array[] myfruits = ["apple", "banana", "strawberry"]; var string lastfruit = myfruits[index];"#;
+        let tree = create_syntax_tree(source);
+        let result = type_check(&tree);
+
+        assert!(
+            result.is_err(),
+            "Index type is not compatible with operation!"
+        );
+    }
+
+    #[test]
+    fn test_illegal_if_branch() {
+        let source = r#" var int x = 1 ; var string mystring = "candy"; if (mystring) {x + 1} "#;
+        let tree = create_syntax_tree(source);
+        let result = type_check(&tree);
+        assert!(
+            result.is_err(),
+            "In if statement the conditional needs to be boolean!"
+        );
+    }
+
+    #[test]
+    fn test_illegal_if_branch_2() {
+        let source =
+            r#" var bool condition = true ; var int myint = 100 ; if (condition) {x = "Hi"} "#;
+        let tree = create_syntax_tree(source);
+        let result = type_check(&tree);
+        assert!(
+            result.is_err(),
+            "Illegal operation in the if branch! Type mismatch. "
+        );
+    }
+
+    #[test]
+    fn test_illegal_constant_mod() {
+        let source = r#"
+        const int count = 0;
+        fn int f() {
+            count = count + 1;
+        }
+        "#;
+        let tree = create_syntax_tree(source);
+        let result = type_check(&tree);
+        assert!(result.is_err(), "Cannot change value of const!")
     }
 }
