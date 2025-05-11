@@ -13,12 +13,13 @@ pub fn type_check(statements: &[Statement]) -> Result<Vec<Statement>, String> {
     // This will hold the new, type-annotated version of each statement
     let mut typed_statements = Vec::new();
 
-    // Add built-in functions to the global scope
+    // Add the built-in `print` function to the global scope
+    // TODO: Make this more generic
     scope_stack[0].insert(
         "print".to_string(),
         TypeConstruct::Function(
-            Box::new(TypeConstruct::Null), // Return type of `print` is `Null`
-            vec![TypeConstruct::Int],      // `print` takes one `Int` argument
+            Box::new(TypeConstruct::Null), 
+            vec![TypeConstruct::String],   
         ),
     );
 
@@ -26,9 +27,10 @@ pub fn type_check(statements: &[Statement]) -> Result<Vec<Statement>, String> {
     for statement in statements {
         println!("Evaluating statement: {:?}", statement);
         match statement {
-            // Case 1: Variable declaration
+            // Case for variable declaration
             Statement::Declaration(declaration) => {
                 match declaration {
+                    // Case for variable
                     Declaration::Variable(var_type, name, expr) => {
                         let typed_expr = infer_type(expr, &scope_stack)?;
                         if *var_type != typed_expr.expr_type {
@@ -49,6 +51,7 @@ pub fn type_check(statements: &[Statement]) -> Result<Vec<Statement>, String> {
                             Box::new(typed_expr.expr),
                         )));
                     }
+                    // Case for constant
                     Declaration::Constant(const_type, name, expr) => {
                         let typed_expr = infer_type(expr, &scope_stack)?;
                         if *const_type != typed_expr.expr_type {
@@ -69,6 +72,7 @@ pub fn type_check(statements: &[Statement]) -> Result<Vec<Statement>, String> {
                             Box::new(typed_expr.expr),
                         )));
                     }
+                    // Case for function
                     Declaration::Function(return_type, name, params, body) => {
                         let param_types: Vec<TypeConstruct> = params
                             .iter()
@@ -108,7 +112,7 @@ pub fn type_check(statements: &[Statement]) -> Result<Vec<Statement>, String> {
                 }
             }
 
-            // Case for
+            // Case for a for-loop
             Statement::For(param, iterable_expr, body) => {
                 let typed_iterable = infer_type(iterable_expr, &scope_stack)?;
             
@@ -156,7 +160,7 @@ pub fn type_check(statements: &[Statement]) -> Result<Vec<Statement>, String> {
                 }
             }
 
-            // Case Variable assignment
+            // Case for variable assignment
             Statement::VariableAssignment(name, expr) => {
                 if let Some(var_type) = lookup_variable(name, &scope_stack) {
                     let typed_expr = infer_type(expr, &scope_stack)?;
@@ -175,12 +179,13 @@ pub fn type_check(statements: &[Statement]) -> Result<Vec<Statement>, String> {
                 }
             }
 
+            // Case for expression statement
             Statement::Expr(expr) => {
                 let typed_expr = infer_type(expr, &scope_stack)?;
                 typed_statements.push(Statement::Expr(Box::new(typed_expr.expr)));
             }
 
-            // Case: If statement
+            // Case for if statement
             Statement::If(condition, body, else_body) => {
                 let typed_condition = infer_type(condition, &scope_stack)?;
                 if typed_condition.expr_type != TypeConstruct::Bool {
@@ -217,7 +222,7 @@ pub fn type_check(statements: &[Statement]) -> Result<Vec<Statement>, String> {
                 ));
             }
 
-            // Case: While statement
+            // Case for while statement
             Statement::While(condition, body) => {
                 let typed_condition = infer_type(condition, &scope_stack)?;
                 if typed_condition.expr_type != TypeConstruct::Bool {
@@ -237,6 +242,7 @@ pub fn type_check(statements: &[Statement]) -> Result<Vec<Statement>, String> {
                 typed_statements.push(Statement::While(Box::new(typed_condition.expr), typed_body));
             }
 
+            // Case for return statement
             Statement::Return(expr) => {
                 let typed_expr = match expr {
                     Some(e) => Some(infer_type(e, &scope_stack)?),
@@ -306,6 +312,7 @@ fn infer_type(
             }
 
             // Only allow arithmetic operations on Int or Double
+            // TODO: needs to be changed
             match op {
                 Operator::Addition
                 | Operator::Subtraction
@@ -497,7 +504,7 @@ fn infer_type(
             }
         }
 
-        // Case for table (e.g `table [int x, double y]`)
+        // Case for table (e.g `table(int x, double y)`)
         Expr::Table(params) => {
             let mut param_types = Vec::new();
             for param in params {
@@ -569,7 +576,10 @@ pub fn lookup_variable(
     name: &str,
     scope_stack: &[HashMap<String, TypeConstruct>],
 ) -> Option<TypeConstruct> {
+    // Iterate through the scope stack in reverse order
+    // to find the most recent declaration of the variable
     for scope in scope_stack.iter().rev() {
+        // Check if the variable exists in the current scope
         if let Some(var_type) = scope.get(name) {
             return Some(var_type.clone());
         }
@@ -578,11 +588,13 @@ pub fn lookup_variable(
 }
 
 // Helper function to push a new scope onto the stack
+// Push means to add a new element to the end of the vector
 fn push_scope(scope_stack: &mut Vec<HashMap<String, TypeConstruct>>) {
     scope_stack.push(HashMap::new());
 }
 
 // Helper function to pop the current scope off the stack
+// Pop means to remove the last element from the vector
 fn pop_scope(scope_stack: &mut Vec<HashMap<String, TypeConstruct>>) {
     scope_stack.pop();
 }
