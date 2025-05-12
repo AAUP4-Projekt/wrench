@@ -1,11 +1,13 @@
+use std::collections::HashMap;
+
 use crate::backend::evaluate::interpret;
 
-use super::ast::Statement;
+use super::ast::{Statement, TypeConstruct};
 use lalrpop_util::{ParseError, lalrpop_mod};
 use logos::Logos;
 
 use super::lexer::Token;
-//use super::typecheck::type_check;
+use super::typecheck::type_check;
 
 lalrpop_mod!(#[allow(clippy::all)] pub grammar);
 
@@ -80,21 +82,26 @@ pub fn run(input: &str, debug_mode: bool) {
         println!("Evaluating:");
     }
 
-    interpret(syntax_tree);
+    // This stack of scopes keeps track of variable names and their types
+    let mut scope_stack: Vec<HashMap<String, TypeConstruct>> = vec![HashMap::new()];
 
-    /*
-    match type_check(&syntax_tree) {
-        Ok(typed_syntax_tree) => {
+    // Insert the global functions
+    scope_stack[0].insert(
+        "print".to_string(),
+        TypeConstruct::Function(
+            Box::new(TypeConstruct::Null), // print returnerer typisk ingenting
+            vec![TypeConstruct::String],   // print tager en String som argument
+        ),
+    );
+    match type_check(&syntax_tree, &mut scope_stack) {
+        Ok(_) => {
             println!("Type checking passed!");
-            print_syntax_tree(&typed_syntax_tree);
-            println!("Interpreting:");
-            interpret(typed_syntax_tree);
+            interpret(syntax_tree);
         }
         Err(e) => {
             eprintln!("Type checking failed: {}", e);
         }
     }
-    */
 }
 
 /*

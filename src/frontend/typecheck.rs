@@ -1,4 +1,3 @@
-/*
 // Import HashMap to keep track of variable types and their types
 use std::collections::HashMap;
 // Import the AST types
@@ -7,257 +6,185 @@ use super::ast::{
     TypedExpr,
 };
 
-// This function checks the types of a list of statements
-pub fn type_check(statements: &[Statement]) -> Result<Vec<Statement>, String> {
-    // This stack of scopes keeps track of variable names and their types
-    let mut scope_stack: Vec<HashMap<String, TypeConstruct>> = vec![HashMap::new()];
-    // This will hold the new, type-annotated version of each statement
-    let mut typed_statements = Vec::new();
+// Main function to perform type checking on a statement
+// - `statement`: The statement to type check
+// - `scope_stack`: A mutable reference to the stack of variable scopes (used for scoping rules)
+pub fn type_check(
+    statement: &Statement,
+    mut scope_stack: &mut Vec<HashMap<String, TypeConstruct>>,
+) -> Result<(), String> {
+    // Match on the type of statement to handle different cases
+    match statement {
+        // Case: Skip statement (no operation)
+        Statement::Skip => {
+            // Skip statement, do nothing
+        }
 
-    // Add the built-in `print` function to the global scope
-    // TODO: Make this more generic
-    scope_stack[0].insert(
-        "print".to_string(),
-        TypeConstruct::Function(Box::new(TypeConstruct::Null), vec![TypeConstruct::String]),
-    );
+        // Case: Compound statement (two statements executed sequentially)
+        Statement::Compound(stmt1, stmt2) => {
+            // Type check both statements in the compound statement
+            type_check(stmt1, scope_stack)?;
+            type_check(stmt2, scope_stack)?;
+        }
 
-    // Go through each statement in the list
-    for statement in statements {
-        println!("Evaluating statement: {:?}", statement);
-        match statement {
-            // Case for variable declaration
-            Statement::Declaration(declaration) => {
-                match declaration {
-                    // Case for variable
-                    Declaration::Variable(var_type, name, expr) => {
-                        let typed_expr = infer_type(expr, &scope_stack)?;
-                        if *var_type != typed_expr.expr_type {
-                            return Err(format!(
-                                "Type mismatch: expected {:?}, found {:?} for variable '{}'",
-                                var_type, typed_expr.expr_type, name
-                            ));
-                        }
-                        // Add the variable to the current scope
+        // Case: Variable declaration
+        Statement::Declaration(declaration) => {
+            match declaration {
+                // Case: Variable declaration with a type, name, and expression
+                Declaration::Variable(var_type, name, expr) => {
+                    // Check and cast the type of the expression
+                    check_and_cast_type(var_type, expr, scope_stack)?;
+                    // Add variable to the current scope
+                    scope_stack
+                        .last_mut()
+                        .unwrap()
+                        .insert(name.clone(), var_type.clone());
+                }
+                // Case: Constant declaration with a type, name, and expression
+                Declaration::Constant(const_type, name, expr) => {
+                    // Check and cast the type of the expression
+                    let typed_expr = infer_type(expr, scope_stack)?;
+                    if *const_type != typed_expr.expr_type {
+                        return Err(format!(
+                            "Type mismatch: expected {:?}, found {:?} for constant '{}'",
+                            const_type, typed_expr.expr_type, name
+                        ));
+                    }
+                    // Add the constant to the current scope
+                    scope_stack
+                        .last_mut()
+                        .unwrap()
+                        .insert(name.clone(), const_type.clone());
+                }
+                // Case: Function declaration with a return type, name, parameters, and body
+                Declaration::Function(return_type, name, params, body) => {
+                    let param_types: Vec<TypeConstruct> = params
+                        .iter()
+                        .map(|Parameter::Parameter(param_type, _)| param_type.clone())
+                        .collect();
+                    scope_stack.last_mut().unwrap().insert(
+                        name.clone(),
+                        TypeConstruct::Function(Box::new(return_type.clone()), param_types),
+                    );
+
+                    // Push a new scope for the function body
+                    push_scope(&mut scope_stack);
+                    for Parameter::Parameter(param_type, param_name) in params {
                         scope_stack
                             .last_mut()
                             .unwrap()
-                            .insert(name.clone(), var_type.clone());
-                        // Add the type-annotated declaration to the result list
-                        typed_statements.push(Statement::Declaration(Declaration::Variable(
-                            var_type.clone(),
-                            name.clone(),
-                            Box::new(typed_expr.expr),
-                        )));
+                            .insert(param_name.clone(), param_type.clone());
                     }
-                    // Case for constant
-                    Declaration::Constant(const_type, name, expr) => {
-                        let typed_expr = infer_type(expr, &scope_stack)?;
-                        if *const_type != typed_expr.expr_type {
-                            return Err(format!(
-                                "Type mismatch: expected {:?}, found {:?} for constant '{}'",
-                                const_type, typed_expr.expr_type, name
-                            ));
-                        }
-                        // Add the constant to the current scope
-                        scope_stack
-                            .last_mut()
-                            .unwrap()
-                            .insert(name.clone(), const_type.clone());
-                        // Add the type-annotated constant to the result list
-                        typed_statements.push(Statement::Declaration(Declaration::Constant(
-                            const_type.clone(),
-                            name.clone(),
-                            Box::new(typed_expr.expr),
-                        )));
-                    }
-                    // Case for function
-                    Declaration::Function(return_type, name, params, body) => {
-                        let param_types: Vec<TypeConstruct> = params
-                            .iter()
-                            .map(|Parameter::Parameter(param_type, _)| param_type.clone())
-                            .collect();
-                        scope_stack.last_mut().unwrap().insert(
-                            name.clone(),
-                            TypeConstruct::Function(Box::new(return_type.clone()), param_types),
-                        );
 
-                        // Push a new scope for the function body
-                        push_scope(&mut scope_stack);
-                        for Parameter::Parameter(param_type, param_name) in params {
+                    type_check(&body, scope_stack)?;
+
+                    // Pop the function scope
+                    pop_scope(&mut scope_stack);
+                }
+            }
+        }
+
+        // Case: For loop
+        Statement::For(param, iterable_expr, body) => {
+            let typed_iterable = infer_type(iterable_expr, scope_stack)?;
+
+            // Match on the type of the iterable expression
+            match &typed_iterable.expr_type {
+                TypeConstruct::Array(element_type) => {
+                    push_scope(&mut scope_stack);
+
+                    // Match on the parameter type
+                    match param {
+                        Parameter::Parameter(param_type, param_name) => {
+                            if *param_type != **element_type {
+                                return Err(format!(
+                                    "Type mismatch in for-loop: expected {:?}, found {:?} for iterator '{}'",
+                                    param_type, element_type, param_name
+                                ));
+                            }
                             scope_stack
                                 .last_mut()
                                 .unwrap()
-                                .insert(param_name.clone(), param_type.clone());
+                                .insert(param_name.clone(), *element_type.clone());
                         }
-
-                        let mut typed_body = Vec::new();
-                        for stmt in body {
-                            let typed_stmt = type_check(&[stmt.clone()])?;
-                            typed_body.extend(typed_stmt);
-                        }
-
-                        // Pop the function scope
-                        pop_scope(&mut scope_stack);
-
-                        // Add the type-annotated function to the result list
-                        typed_statements.push(Statement::Declaration(Declaration::Function(
-                            return_type.clone(),
-                            name.clone(),
-                            params.clone(),
-                            typed_body,
-                        )));
                     }
-                }
-            }
 
-            // Case for a for-loop
-            Statement::For(param, iterable_expr, body) => {
-                let typed_iterable = infer_type(iterable_expr, &scope_stack)?;
+                    type_check(&body, scope_stack)?;
 
-                // Match på typen af `typed_iterable.expr_type`
-                match &typed_iterable.expr_type {
-                    TypeConstruct::Array(element_type) => {
-                        push_scope(&mut scope_stack);
-
-                        // Match på parameteren
-                        match param {
-                            Parameter::Parameter(param_type, param_name) => {
-                                if *param_type != **element_type {
-                                    return Err(format!(
-                                        "Type mismatch in for-loop: expected {:?}, found {:?} for iterator '{}'",
-                                        param_type, element_type, param_name
-                                    ));
-                                }
-                                scope_stack
-                                    .last_mut()
-                                    .unwrap()
-                                    .insert(param_name.clone(), *element_type.clone());
-                            }
-                        }
-
-                        let mut typed_body = Vec::new();
-                        for stmt in body {
-                            let typed_stmt = type_check(&[stmt.clone()])?;
-                            typed_body.extend(typed_stmt);
-                        }
-
-                        pop_scope(&mut scope_stack);
-
-                        typed_statements.push(Statement::For(
-                            param.clone(),
-                            Box::new(typed_iterable.expr),
-                            typed_body,
-                        ));
-                    }
-                    _ => {
-                        return Err(format!(
-                            "For-loop iterable must be an array, found {:?}",
-                            typed_iterable.expr_type
-                        ));
-                    }
-                }
-            }
-
-            // Case for variable assignment
-            Statement::VariableAssignment(name, expr) => {
-                if let Some(var_type) = lookup_variable(name, &scope_stack) {
-                    let typed_expr = infer_type(expr, &scope_stack)?;
-                    if var_type != typed_expr.expr_type {
-                        return Err(format!(
-                            "Type mismatch: expected {:?}, found {:?} for variable '{}'",
-                            var_type, typed_expr.expr_type, name
-                        ));
-                    }
-                    typed_statements.push(Statement::VariableAssignment(
-                        name.clone(),
-                        Box::new(typed_expr.expr),
-                    ));
-                } else {
-                    return Err(format!("Undefined variable '{}'", name));
-                }
-            }
-
-            // Case for expression statement
-            Statement::Expr(expr) => {
-                let typed_expr = infer_type(expr, &scope_stack)?;
-                typed_statements.push(Statement::Expr(Box::new(typed_expr.expr)));
-            }
-
-            // Case for if statement
-            Statement::If(condition, body, else_body) => {
-                let typed_condition = infer_type(condition, &scope_stack)?;
-                if typed_condition.expr_type != TypeConstruct::Bool {
-                    return Err("If condition must be a boolean".to_string());
-                }
-
-                // Push a new scope for the if body
-                push_scope(&mut scope_stack);
-                let mut typed_body = Vec::new();
-                for stmt in body {
-                    let typed_stmt = type_check(&[stmt.clone()])?;
-                    typed_body.extend(typed_stmt);
-                }
-                pop_scope(&mut scope_stack);
-
-                // Handle the else body if it exists
-                let mut typed_else_body = None;
-                if let Some(else_body_statements) = else_body {
-                    push_scope(&mut scope_stack);
-                    let mut typed_else = Vec::new();
-                    for stmt in else_body_statements {
-                        let typed_stmt = type_check(&[stmt.clone()])?;
-                        typed_else.extend(typed_stmt);
-                    }
                     pop_scope(&mut scope_stack);
-                    typed_else_body = Some(typed_else);
                 }
+                _ => {
+                    return Err(format!(
+                        "For-loop iterable must be an array, found {:?}",
+                        typed_iterable.expr_type
+                    ));
+                }
+            }
+        }
 
-                // Add the type-annotated if statement to the result list
-                typed_statements.push(Statement::If(
-                    Box::new(typed_condition.expr),
-                    typed_body,
-                    typed_else_body,
-                ));
+        // Case: Variable assignment
+        Statement::VariableAssignment(name, expr) => {
+            if let Some(var_type) = lookup_variable(name, scope_stack) {
+                check_and_cast_type(&var_type, expr, scope_stack)?;
+                // Update the variable type in the current scope
+                scope_stack
+                    .last_mut()
+                    .unwrap()
+                    .insert(name.clone(), var_type.clone());
+            } else {
+                return Err(format!("Undefined variable '{}'", name));
+            }
+        }
+
+        // Case: Constant assignment
+        Statement::Expr(expr) => {
+            infer_type(expr, scope_stack)?;
+        }
+
+        // Case: If statement
+        Statement::If(condition, body, else_body) => {
+            let typed_condition = infer_type(condition, scope_stack)?;
+            if typed_condition.expr_type != TypeConstruct::Bool {
+                return Err("If condition must be a boolean".to_string());
             }
 
-            // Case for while statement
-            Statement::While(condition, body) => {
-                let typed_condition = infer_type(condition, &scope_stack)?;
-                if typed_condition.expr_type != TypeConstruct::Bool {
-                    return Err("While condition must be a boolean".to_string());
-                }
+            // Push a new scope for the if body
+            push_scope(&mut scope_stack);
+            type_check(&body, scope_stack)?;
+            pop_scope(&mut scope_stack);
 
-                // Push a new scope for the while body
-                push_scope(&mut scope_stack);
-                let mut typed_body = Vec::new();
-                for stmt in body {
-                    let typed_stmt = type_check(&[stmt.clone()])?;
-                    typed_body.extend(typed_stmt);
-                }
-                pop_scope(&mut scope_stack);
+            // Push a new scope for the else body
+            push_scope(&mut scope_stack);
+            type_check(else_body, scope_stack)?;
+            pop_scope(&mut scope_stack);
+        }
 
-                // Add the type-annotated while statement to the result list
-                typed_statements.push(Statement::While(Box::new(typed_condition.expr), typed_body));
+        // Case: While statement
+        Statement::While(condition, body) => {
+            let typed_condition = infer_type(condition, scope_stack)?;
+            if typed_condition.expr_type != TypeConstruct::Bool {
+                return Err("While condition must be a boolean".to_string());
             }
 
-            // Case for return statement
-            Statement::Return(expr) => {
-                let typed_expr = match expr {
-                    Some(e) => Some(infer_type(e, &scope_stack)?),
-                    None => None,
-                };
-                typed_statements.push(Statement::Return(typed_expr.map(|e| Box::new(e.expr))));
-            }
+            // Push a new scope for the while body
+            push_scope(&mut scope_stack);
+            type_check(&body, scope_stack)?;
+            pop_scope(&mut scope_stack);
+        }
+
+        // Case: return statement
+        Statement::Return(expr) => {
+            infer_type(expr, scope_stack)?;
         }
     }
 
-    Ok(typed_statements)
+    Ok(())
 }
 
-// Update `infer_type` to use the scope stack
+// Function to infer the type of an expression
 fn infer_type(
     expr: &Expr,
-    scope_stack: &[HashMap<String, TypeConstruct>],
+    mut scope_stack: &mut Vec<HashMap<String, TypeConstruct>>,
 ) -> Result<TypedExpr, String> {
     match expr {
         // Case: Integer literal (e.g., `5`)
@@ -287,6 +214,7 @@ fn infer_type(
             expr_type: TypeConstruct::Null,
         }),
 
+        // Case: Identifier (e.g., `x`)
         Expr::Identifier(name) => {
             let expr_type = lookup_variable(name, scope_stack)
                 .ok_or_else(|| format!("Undefined variable '{}'", name))?;
@@ -301,36 +229,21 @@ fn infer_type(
             let left_typed = infer_type(left, scope_stack)?;
             let right_typed = infer_type(right, scope_stack)?;
 
-            // Make sure both sides have the same type todo: NEEDS TO BE CHANGED. Update: Changed!
-
-            let (widen_left, widen_right, result_type) = match (
-                &left_typed.expr_type,
-                &right_typed.expr_type,
-            ) {
-                //Convert left side to double
-                (TypeConstruct::Int, TypeConstruct::Double) => (
-                    Expr::Cast(TypeConstruct::Double, Box::new(left_typed.expr)),
-                    right_typed.expr,
-                    TypeConstruct::Double,
-                ),
-
-                //Convert rightv side to double
-                (TypeConstruct::Double, TypeConstruct::Int) => (
-                    left_typed.expr,
-                    Expr::Cast(TypeConstruct::Double, Box::new(right_typed.expr)),
-                    TypeConstruct::Double,
-                ),
-
-                //When types match so we have int+int or double+double
-                (type1, type2) if type1 == type2 => {
-                    (left_typed.expr, right_typed.expr, type1.clone())
-                }
-
-                //Incompatible types. Not like in JS where "Hello" + 51 = Hello51.
-                (left, right) => {
+            // Check if the operator is valid for the types
+            let widened_left =
+                check_and_cast_type(&right_typed.expr_type, &left_typed.expr, &mut scope_stack)?;
+            let widened_right =
+                check_and_cast_type(&left_typed.expr_type, &right_typed.expr, &mut scope_stack)?;
+            // Determine the result type based on the operator and operand types
+            let result_type = match (&left_typed.expr_type, &right_typed.expr_type) {
+                (TypeConstruct::Int, TypeConstruct::Double)
+                | (TypeConstruct::Double, TypeConstruct::Int)
+                | (TypeConstruct::Double, TypeConstruct::Double) => TypeConstruct::Double,
+                (TypeConstruct::Int, TypeConstruct::Int) => TypeConstruct::Int,
+                _ => {
                     return Err(format!(
                         "Operation on incompatible types. Left-hand side is {:?} and right-hand side is {:?}",
-                        left, right
+                        left_typed.expr_type, right_typed.expr_type
                     ));
                 }
             };
@@ -345,9 +258,9 @@ fn infer_type(
                     if result_type == TypeConstruct::Int || result_type == TypeConstruct::Double {
                         Ok(TypedExpr {
                             expr: Expr::Operation(
-                                Box::new(widen_left),
+                                Box::new(widened_left),
                                 (*op).clone(),
-                                Box::new(widen_right),
+                                Box::new(widened_right),
                             ),
                             expr_type: result_type,
                         })
@@ -398,25 +311,6 @@ fn infer_type(
             })
         }
 
-        //Explicit type casting such as (int) x or (double) y after initializing x as double, and y as int.
-        Expr::Cast(result_type, expr) => {
-            let original = infer_type(expr, scope_stack)?;
-
-            match (&original.expr_type, result_type) {
-                (TypeConstruct::Int, TypeConstruct::Double)
-                | (TypeConstruct::Double, TypeConstruct::Int) => Ok(TypedExpr {
-                    expr: Expr::Cast(result_type.clone(), Box::new(original.expr)),
-                    expr_type: result_type.clone(),
-                }),
-
-                //Forbid other type conversions such as bool => double or string =>bool
-                (start, finish) => Err(format!(
-                    "Incompatible type conversion betweeen {:?} and {:?}",
-                    start, finish
-                )),
-            }
-        }
-
         // Case: Indexing (e.g., `arr[0]`)
         Expr::Indexing(array_expr, index_expr) => {
             let array_typed = infer_type(array_expr, scope_stack)?;
@@ -439,6 +333,29 @@ fn infer_type(
         // Case for function call (e.g., `f(x, y)`)
         Expr::FunctionCall(name, args) => {
             if let Some(func_type) = lookup_variable(name, scope_stack) {
+                if name == "print" {
+                    // allow print function with any number of arguments
+                    for arg in args {
+                        let arg_type = infer_type(arg, scope_stack)?.expr_type;
+                        match arg_type {
+                            TypeConstruct::String | TypeConstruct::Int | TypeConstruct::Double => {
+                                // Valid types for print
+                            }
+                            _ => {
+                                return Err(format!(
+                                    "Type mismatch in function call `{}`: expected String, Int, or Double, found {:?}",
+                                    name, arg_type
+                                ));
+                            }
+                        }
+                    }
+                    return Ok(TypedExpr {
+                        expr: Expr::FunctionCall(name.clone(), args.clone()),
+                        expr_type: TypeConstruct::Null,
+                    }); // print typically returns nothing
+                }
+
+                // Check if the function is of type Function
                 if let TypeConstruct::Function(return_type, param_types) = func_type {
                     if args.len() != param_types.len() {
                         return Err(format!(
@@ -459,7 +376,7 @@ fn infer_type(
                             ));
                         }
                     }
-
+                    // Check if the output of the function is either Row or Table
                     Ok(TypedExpr {
                         expr: Expr::FunctionCall(name.clone(), args.clone()),
                         expr_type: *return_type.clone(),
@@ -472,7 +389,7 @@ fn infer_type(
             }
         }
 
-        // Case for pipe operation (e.g., `x pipe f`)
+        // Case: pipe operation (e.g., `x pipe f`)
         Expr::Pipe(left, pipe_name, args) => {
             // Type-check input to the pipe
             let left_typed = infer_type(left, scope_stack)?;
@@ -541,7 +458,7 @@ fn infer_type(
             }
         }
 
-        // Case for table (e.g `table(int x, double y)`)
+        // Case: table
         Expr::Table(params) => {
             let mut param_types = Vec::new();
             for param in params {
@@ -558,10 +475,11 @@ fn infer_type(
             })
         }
 
-        // Case for row
+        // Case: row
         Expr::Row(column_assignments) => {
             let mut param_types = Vec::new();
             for column in column_assignments {
+                // Match on the type of column assignment
                 match column {
                     ColumnAssignmentEnum::ColumnAssignment(param_type, param_name, expr) => {
                         let typed_expr = infer_type(expr, scope_stack)?;
@@ -582,23 +500,16 @@ fn infer_type(
             })
         }
 
-        // Case for column indexing
-        Expr::ColumnIndexing(table_expr, column_expr) => {
+        // Case: column indexing
+        Expr::ColumnIndexing(table_expr, column_name) => {
             let table_typed = infer_type(table_expr, scope_stack)?;
-            let column_typed = infer_type(column_expr, scope_stack)?;
 
             // Check if the table is of type Table or Row
             match table_typed.expr_type {
                 TypeConstruct::Table(_) | TypeConstruct::Row(_) => {
                     // Check if the column is of type String
-                    if column_typed.expr_type != TypeConstruct::String {
-                        return Err("Column name must be a string".to_string());
-                    }
                     Ok(TypedExpr {
-                        expr: Expr::ColumnIndexing(
-                            Box::new(table_typed.expr),
-                            Box::new(column_typed.expr),
-                        ),
+                        expr: Expr::ColumnIndexing(Box::new(table_typed.expr), column_name.clone()),
                         expr_type: table_typed.expr_type.clone(), // Return the same type as the table
                     })
                 }
@@ -634,6 +545,32 @@ fn push_scope(scope_stack: &mut Vec<HashMap<String, TypeConstruct>>) {
 // Pop means to remove the last element from the vector
 fn pop_scope(scope_stack: &mut Vec<HashMap<String, TypeConstruct>>) {
     scope_stack.pop();
+}
+
+// Helper function to check and cast types
+fn check_and_cast_type(
+    expected_type: &TypeConstruct,
+    expr: &Expr,
+    scope_stack: &mut Vec<HashMap<String, TypeConstruct>>,
+) -> Result<Expr, String> {
+    let typed_expr = infer_type(expr, scope_stack)?;
+
+    match (expected_type, &typed_expr.expr_type) {
+        // Implicit cast from Int to Double allowed
+        (TypeConstruct::Double, TypeConstruct::Int) => Ok(typed_expr.expr),
+        // Implicit cast from Double to Int not allowed
+        (TypeConstruct::Int, TypeConstruct::Double) => Err(format!(
+            "Cannot implicitly cast Double to Int. Expected {:?}, found {:?}",
+            expected_type, typed_expr.expr_type
+        )),
+        // If the expected type matches the inferred type
+        _ if expected_type == &typed_expr.expr_type => Ok(typed_expr.expr),
+        // If the types do not match, return an error
+        _ => Err(format!(
+            "Type mismatch: expected {:?}, found {:?}",
+            expected_type, typed_expr.expr_type
+        )),
+    }
 }
 
 //Unit-integration tests:
