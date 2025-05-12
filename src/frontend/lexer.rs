@@ -4,7 +4,7 @@ use logos::Logos;
 #[derive(Logos, Debug, PartialEq, Clone)]
 pub enum Token {
     //ignore whitespace
-    #[regex(r"[ \t\n\f]+", logos::skip)]
+    #[regex(r"[ \t\r\n\f]+", logos::skip)]
     Whitespace,
 
     //ignore oneline comments like this one
@@ -112,7 +112,7 @@ pub enum Token {
     In,
 
     //Literals
-    #[regex(r#""([^"\\]|\\.)*""#, |lex| lex.slice().to_string())] //Things like "Hello"
+    #[regex(r#""([^"\\]|\\.)*""#, callback = parse_string)] //Things like "Hello"
     Stringliteral(String),
 
     //Punctuators
@@ -140,10 +140,10 @@ pub enum Token {
     #[token("]")]
     Closesquarebracket,
 
-    #[token("<")] //FOR GENERICS to be handled at parsing, not lexical analysis
+    #[token("<")]
     LeftAngle,
 
-    #[token(">")] //FOR GENERICS to be handled at parsing, not lexical analysis
+    #[token(">")]
     RightAngle,
 
     #[token("<=")]
@@ -156,25 +156,21 @@ pub enum Token {
     #[token("!")]
     ExclamationMark,
 
-    #[token("?")]
-    QuestionMark,
-
-    #[token("$")]
-    Dollarsign,
-
-    #[token("'")]
-    Singlequote,
-
     #[token(".")]
     Dot,
 }
 
 fn parse_integer(lex: &mut logos::Lexer<Token>) -> i32 {
-    lex.slice().parse().unwrap_or(0)
+    lex.slice().parse().unwrap()
 }
 
 fn parse_double(lex: &mut logos::Lexer<Token>) -> f64 {
     lex.slice().parse().unwrap()
+}
+
+fn parse_string(lex: &mut logos::Lexer<Token>) -> String {
+    let content = lex.slice();
+    content[1..content.len() - 1].to_string() // Strip the quotes
 }
 
 //Unit tests for lexer
@@ -211,11 +207,8 @@ mod tests {
 
     #[test]
     fn test_for_specialchars() {
-        let mut lexer = Token::lexer("? ! $");
-
-        assert_eq!(lexer.next(), Some(Ok(Token::QuestionMark)));
+        let mut lexer = Token::lexer("!");
         assert_eq!(lexer.next(), Some(Ok(Token::ExclamationMark)));
-        assert_eq!(lexer.next(), Some(Ok(Token::Dollarsign)));
     }
 
     #[test]
