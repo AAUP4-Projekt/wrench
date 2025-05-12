@@ -2,6 +2,8 @@
 
 use std::fmt::Debug;
 
+use crate::backend::table::Table;
+
 #[derive(PartialEq, Debug)]
 pub struct TypedExpr {
     pub expr: Expr,               // Represents the expression itself
@@ -10,20 +12,22 @@ pub struct TypedExpr {
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Statement {
-    Expr(Box<Expr>),                       // Represents an expression statement
+    Expr(Box<Expr>),                               // Represents an expression statement
     VariableAssignment(String, Box<Expr>), // Represents a variable assignment with its name and value
     Declaration(Declaration),              // Represents a declaration
-    Return(Option<Box<Expr>>), // Represents a return statement with an optional expression
-    If(Box<Expr>, Vec<Statement>, Option<Vec<Statement>>), // Represents an if statement with its condition, body, and optional else body
-    For(Parameter, Box<Expr>, Vec<Statement>), // Represents a for loop with its initialization, condition, and body
-    While(Box<Expr>, Vec<Statement>), // Represents a while loop with its condition and body
+    Return(Box<Expr>), // Represents a return statement with an optional expression
+    If(Box<Expr>, Box<Statement>, Box<Statement>), // Represents an if statement with its condition, body, and optional else body
+    For(Parameter, Box<Expr>, Box<Statement>), // Represents a for loop with its initialization, condition, and body
+    While(Box<Expr>, Box<Statement>), // Represents a while loop with its condition and body
+    Compound(Box<Statement>, Box<Statement>), // Represents a compound statement with two statements
+    Skip,
 }
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Declaration {
     Variable(TypeConstruct, String, Box<Expr>), // Represents a variable declaration with its type, name, and assigned value
     Constant(TypeConstruct, String, Box<Expr>), // Represents a variable declaration with its type, name, and assigned value
-    Function(TypeConstruct, String, Vec<Parameter>, Vec<Statement>), // Represents a function declaration with its return type, name, parameters, and body
+    Function(TypeConstruct, String, Vec<Parameter>, Box<Statement>), // Represents a function declaration with its return type, name, parameters, and body
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -42,8 +46,7 @@ pub enum Expr {
     Array(Vec<Box<Expr>>),          // Represents an array with its elements
     Pipe(Box<Expr>, String, Vec<Box<Expr>>), // Represents a pipe operation, e.g. for chaining operations
     FunctionCall(String, Vec<Box<Expr>>), // Represents a function call with its name and arguments
-    ColumnIndexing(Box<Expr>, Box<Expr>), // Represents indexing into a column of a table or row
-    Cast(TypeConstruct, Box<Expr>),       //Allowing explicit casts like: int(x) when x is a double
+    ColumnIndexing(Box<Expr>, String),    // Represents indexing into a column of a table or row
 }
 
 // Enum representing types
@@ -54,9 +57,7 @@ pub enum TypeConstruct {
     Double,
     String,
     Null,
-    Generic(String),              // Represents a generic type with a name
-    Optional(Box<TypeConstruct>), // Represents an optional type
-    Array(Box<TypeConstruct>),    // Represents an array type
+    Array(Box<TypeConstruct>), // Represents an array type
     Function(Box<TypeConstruct>, Vec<TypeConstruct>), // Represents a function type with return type and parameter types
     Table(Vec<Parameter>),                            // Represents a table type with its columns
     Row(Vec<Parameter>),                              // Represents a row type with its columns
@@ -65,19 +66,16 @@ pub enum TypeConstruct {
 // Enum representing the different types of operations
 #[derive(PartialEq, Debug, Clone)]
 pub enum Operator {
-    Multiplication,     // multiplication (*)
-    Exponent,           // exponent (**)
-    Addition,           // addition (+)
-    Subtraction,        // subtraction (-)
-    Division,           // division (/)
-    Modulo,             // modulo (%)
-    Equals,             // equality (==)
-    LessThan,           // less than (<)
-    GreaterThan,        // greater than (>)
-    LessThanOrEqual,    // less than or equal (<=)
-    GreaterThanOrEqual, // greater than or equal (>=)
-    And,                // logical AND
-    Or,                 // logical OR
+    Multiplication,  // multiplication (*)
+    Exponent,        // exponent (**)
+    Addition,        // addition (+)
+    Subtraction,     // subtraction (-)
+    Division,        // division (/)
+    Modulo,          // modulo (%)
+    Equals,          // equality (==)
+    LessThan,        // less than (<)
+    LessThanOrEqual, // less than or equal (<=)
+    Or,              // logical OR
 }
 
 /*
@@ -94,4 +92,48 @@ pub enum Parameter {
 #[derive(PartialEq, Debug, Clone)]
 pub enum ColumnAssignmentEnum {
     ColumnAssignment(TypeConstruct, String, Box<Expr>), // Represents a column assignment with its type, name, and value
+}
+
+/*
+=======================================
+Helper functions for building ASTs
+=======================================
+*/
+pub fn make_compound(stmts: Vec<Statement>) -> Box<Statement> {
+    stmts
+        .into_iter()
+        .rev()
+        .fold(Box::new(Statement::Skip), |acc, stmt| {
+            Box::new(Statement::Compound(Box::new(stmt), acc))
+        })
+}
+
+pub fn ast_less_than(left: Box<Expr>, right: Box<Expr>) -> Box<Expr> {
+    Box::new(Expr::Operation(left, Operator::LessThan, right))
+}
+
+pub fn ast_less_than_or_equal(left: Box<Expr>, right: Box<Expr>) -> Box<Expr> {
+    Box::new(Expr::Operation(left, Operator::LessThanOrEqual, right))
+}
+
+pub fn ast_or(left: Box<Expr>, right: Box<Expr>) -> Box<Expr> {
+    Box::new(Expr::Operation(left, Operator::Or, right))
+}
+
+pub fn ast_not(expr: Box<Expr>) -> Box<Expr> {
+    Box::new(Expr::Not(expr))
+}
+
+// Syntax sugar
+
+pub fn ast_and(left: Box<Expr>, right: Box<Expr>) -> Box<Expr> {
+    ast_not(ast_or(ast_not(left), ast_not(right))) // De Morgan's law: !(A && B) == !A || !B
+}
+
+pub fn ast_greater_than_or_equal(left: Box<Expr>, right: Box<Expr>) -> Box<Expr> {
+    ast_not(ast_less_than(left, right)) // !(A < B) == A >= B
+}
+
+pub fn ast_greater_than(left: Box<Expr>, right: Box<Expr>) -> Box<Expr> {
+    ast_not(ast_less_than_or_equal(left, right)) // !(A <= B) == A > B
 }

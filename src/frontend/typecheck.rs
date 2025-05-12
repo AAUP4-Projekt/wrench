@@ -1,3 +1,4 @@
+/*
 // Import HashMap to keep track of variable types and their types
 use std::collections::HashMap;
 // Import the AST types
