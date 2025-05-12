@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::backend::evaluate::interpret;
 
-use super::ast::{Statement, TypeConstruct};
+use super::ast::{Statement, TypeConstruct, VariableInfo};
 use lalrpop_util::{ParseError, lalrpop_mod};
 use logos::Logos;
 
@@ -83,15 +83,18 @@ pub fn run(input: &str, debug_mode: bool) {
     }
 
     // This stack of scopes keeps track of variable names and their types
-    let mut scope_stack: Vec<HashMap<String, TypeConstruct>> = vec![HashMap::new()];
+    let mut scope_stack: Vec<HashMap<String, VariableInfo>> = vec![HashMap::new()];
 
     // Insert the global functions
     scope_stack[0].insert(
         "print".to_string(),
-        TypeConstruct::Function(
-            Box::new(TypeConstruct::Null), // print returnerer typisk ingenting
-            vec![TypeConstruct::String],   // print tager en String som argument
-        ),
+        VariableInfo {
+            var_type: TypeConstruct::Function(
+                Box::new(TypeConstruct::Null),
+                vec![TypeConstruct::String],
+            ),
+            is_constant: false,
+        },
     );
     match type_check(&syntax_tree, &mut scope_stack) {
         Ok(_) => {

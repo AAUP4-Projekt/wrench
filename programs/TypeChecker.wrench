@@ -1,9 +1,9 @@
 var int x = 3;
-var string text = "hej";
+const string text = "hej";
 
 fn string testFunc(string a) {
-    print(a);
-    return;
+    print(text);
+    return a;
 };
 
 testFunc(text);

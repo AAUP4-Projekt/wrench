@@ -11,6 +11,12 @@ pub struct TypedExpr {
 }
 
 #[derive(PartialEq, Debug, Clone)]
+pub struct VariableInfo {
+    pub var_type: TypeConstruct,
+    pub is_constant: bool,
+}
+
+#[derive(PartialEq, Debug, Clone)]
 pub enum Statement {
     Expr(Box<Expr>),                               // Represents an expression statement
     VariableAssignment(String, Box<Expr>), // Represents a variable assignment with its name and value
