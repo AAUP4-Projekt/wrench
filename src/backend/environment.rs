@@ -1,16 +1,25 @@
 use core::panic;
 
 use crate::frontend::ast::{Expr, Parameter, Statement, TypeConstruct};
+use std::rc::Rc;
+use std::cell::RefCell;
 
-use super::table::Table;
+use super::table::{Row, Table};
 
 #[derive(Clone)]
 pub enum ExpressionValue {
     Number(i32),
     String(String),
     Bool(bool),
-    Table(Table),
+    Table(Rc<RefCell<Table>>),
+    Row(Row),
+    Array(Vec<ExpressionValue>),
     Null,
+}
+
+pub enum StatementValue{
+    None,
+    Return(ExpressionValue),
 }
 
 #[derive(Clone)]
