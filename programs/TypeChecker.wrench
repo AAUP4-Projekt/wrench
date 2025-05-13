@@ -7,3 +7,5 @@ fn string testFunc(string a) {
 };
 
 testFunc(text);
+
+var table(int x, string yName, double z) myTable = table(int x, string yName, double hej);

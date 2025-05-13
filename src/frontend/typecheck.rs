@@ -1,5 +1,5 @@
 // Import HashMap to keep track of variable types and their types
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 // Import the AST types
 use super::ast::{
     ColumnAssignmentEnum, Declaration, Expr, Operator, Parameter, Statement, TypeConstruct,
@@ -495,14 +495,23 @@ fn infer_type(
         // Case: table
         Expr::Table(params) => {
             let mut param_types = Vec::new();
+            let mut seen_names = HashSet::new();
+        
             for param in params {
                 match param {
                     Parameter::Parameter(param_type, param_name) => {
-                        param_types
-                            .push(Parameter::Parameter(param_type.clone(), param_name.clone()));
+                        // Check for duplicate parameter names
+                        if !seen_names.insert(param_name.clone()) {
+                            return Err(format!(
+                                "Duplicate parameter name '{}' in table declaration",
+                                param_name
+                            ));
+                        }
+                        param_types.push(Parameter::Parameter(param_type.clone(), param_name.clone()));
                     }
                 }
             }
+        
             Ok(TypedExpr {
                 expr: Expr::Table(params.clone()),
                 expr_type: TypeConstruct::Table(param_types),
