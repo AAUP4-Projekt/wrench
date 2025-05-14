@@ -110,6 +110,7 @@ mod tests {
     use super::super::ast::make_compound;
     use super::super::ast::{
         ColumnAssignmentEnum, Declaration, Expr, Operator, Parameter, Statement, TypeConstruct,
+        ast_and,
     };
     use super::super::lexer::Token; // Import the Token enum from the lexer module
     use super::{create_syntax_tree, parse}; // Import the module being tested // Import the AST types
@@ -388,23 +389,15 @@ mod tests {
 
     #[test]
     fn parses_boolean_operators() {
-        // Test if boolean operators are parsed correctly
-        // Arrange
         let expected_syntax_tree =
             *make_compound(vec![Statement::Expr(Box::new(Expr::Operation(
-                Box::new(Expr::Operation(
-                    Box::new(Expr::Bool(true)),
-                    Operator::And,
-                    Box::new(Expr::Bool(false)),
-                )),
+                ast_and(Box::new(Expr::Bool(true)), Box::new(Expr::Bool(false))),
                 Operator::Or,
                 Box::new(Expr::Bool(true)),
             )))]);
 
-        // Act
         let syntax_tree = create_syntax_tree("true and false or true;");
 
-        // Assert
         assert_eq!(syntax_tree, expected_syntax_tree);
     }
 
