@@ -1,0 +1,11 @@
+var int x = 3;
+const string text = "hej";
+
+fn string testFunc(string a) {
+    print(text);
+    return a;
+};
+
+testFunc(text);
+
+var table(int x, string yName, double z) myTable = table(int x, string yName, double hej);
