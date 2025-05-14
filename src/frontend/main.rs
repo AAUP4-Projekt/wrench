@@ -1,10 +1,11 @@
 use crate::backend::evaluate::interpret;
 
 use super::ast::Statement;
+use super::lexer::Token;
+use crate::frontend::ast::make_compound;
 use lalrpop_util::{ParseError, lalrpop_mod};
 use logos::Logos;
-
-use super::lexer::Token;
+use pretty_assertions::assert_eq;
 //use super::typecheck::type_check;
 
 lalrpop_mod!(#[allow(clippy::all)] pub grammar);
@@ -60,7 +61,9 @@ fn parse(tokens: Vec<(usize, Token, usize)>) -> Statement {
 }
 
 //Lex tokens from input and parse them into a syntax tree
+//pub fn create_syntax_tree(input: &str) -> Vec<Statement> {
 pub fn create_syntax_tree(input: &str) -> Statement {
+    ////Statement
     //Collect tokens
     let tokens = lex(input);
     //Parse tokens and return the syntax tree
@@ -104,6 +107,7 @@ Unit Tests for parser
 */
 #[cfg(test)]
 mod tests {
+    use super::super::ast::make_compound;
     use super::super::ast::{
         ColumnAssignmentEnum, Declaration, Expr, Operator, Parameter, Statement, TypeConstruct,
     };
@@ -116,7 +120,7 @@ mod tests {
     }
 
     #[test]
-    fn tokens_are_pased_1() {
+    fn tokens_are_parsed_1() {
         // Arrange
         let tokens = vec![
             f(Token::Integer(3)),
@@ -127,15 +131,16 @@ mod tests {
             f(Token::Semicolon),
         ];
 
-        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Operation(
-            Box::new(Expr::Number(3)),
-            Operator::Addition,
-            Box::new(Expr::Operation(
-                Box::new(Expr::Number(5)),
-                Operator::Multiplication,
-                Box::new(Expr::Number(2)),
-            )),
-        )))];
+        let expected_syntax_tree =
+            *make_compound(vec![Statement::Expr(Box::new(Expr::Operation(
+                Box::new(Expr::Number(3)),
+                Operator::Addition,
+                Box::new(Expr::Operation(
+                    Box::new(Expr::Number(5)),
+                    Operator::Multiplication,
+                    Box::new(Expr::Number(2)),
+                )),
+            )))]);
 
         // Act
         let syntax_tree = parse(tokens);
@@ -145,7 +150,7 @@ mod tests {
     }
 
     #[test]
-    fn tokens_are_pased_2() {
+    fn tokens_are_parsed_2() {
         // Arrange
         let tokens = vec![
             f(Token::Table),
@@ -162,13 +167,13 @@ mod tests {
             f(Token::Semicolon),
         ];
 
-        let expected_syntax_tree = vec![
+        let expected_syntax_tree = *make_compound(vec![
             Statement::Expr(Box::new(Expr::Table(vec![
                 Parameter::Parameter(TypeConstruct::Int, "id".to_string()),
                 Parameter::Parameter(TypeConstruct::String, "name".to_string()),
             ]))),
             Statement::Expr(Box::new(Expr::Not(Box::new(Expr::Bool(true))))),
-        ];
+        ]);
 
         // Act
         let syntax_tree = parse(tokens);
@@ -187,15 +192,16 @@ mod tests {
     fn correct_expression_parse() {
         //Test if input parses correctly
         // Arrange
-        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Operation(
-            Box::new(Expr::Number(3)),
-            Operator::Addition,
-            Box::new(Expr::Operation(
-                Box::new(Expr::Number(5)),
-                Operator::Multiplication,
-                Box::new(Expr::Number(2)),
-            )),
-        )))];
+        let expected_syntax_tree =
+            *make_compound(vec![Statement::Expr(Box::new(Expr::Operation(
+                Box::new(Expr::Number(3)),
+                Operator::Addition,
+                Box::new(Expr::Operation(
+                    Box::new(Expr::Number(5)),
+                    Operator::Multiplication,
+                    Box::new(Expr::Number(2)),
+                )),
+            )))]);
 
         // Act
         let syntax_tree = create_syntax_tree("3 + 5 * 2;");
@@ -208,15 +214,16 @@ mod tests {
     fn incorrect_expression_parse() {
         //Test if wrong input parses incorrectly
         // Arrange
-        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Operation(
-            Box::new(Expr::Number(3)),
-            Operator::Addition,
-            Box::new(Expr::Operation(
-                Box::new(Expr::Number(5)),
-                Operator::Addition, //Incorrect operator for the test
-                Box::new(Expr::Number(2)),
-            )),
-        )))];
+        let expected_syntax_tree =
+            *make_compound(vec![Statement::Expr(Box::new(Expr::Operation(
+                Box::new(Expr::Number(3)),
+                Operator::Addition,
+                Box::new(Expr::Operation(
+                    Box::new(Expr::Number(5)),
+                    Operator::Addition, //Incorrect operator for the test
+                    Box::new(Expr::Number(2)),
+                )),
+            )))]);
 
         // Act
         let syntax_tree = create_syntax_tree("3 + 5 * 2;");
@@ -229,10 +236,10 @@ mod tests {
     fn comments_and_witespace_ignored() {
         //Test if comments and whitespace are ignored
         // Arrange
-        let expected_syntax_tree = vec![
+        let expected_syntax_tree = *make_compound(vec![
             Statement::Expr(Box::new(Expr::Number(3))),
             Statement::Expr(Box::new(Expr::Number(2))),
-        ];
+        ]);
 
         // Act
         let syntax_tree = create_syntax_tree("3;      //Comment ag \n2;");
@@ -245,15 +252,16 @@ mod tests {
     fn exponent_right_to_left_associativity() {
         //Test if exponentiation is right associative
         // Arrange
-        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Operation(
-            Box::new(Expr::Number(3)),
-            Operator::Exponent,
-            Box::new(Expr::Operation(
-                Box::new(Expr::Number(2)),
+        let expected_syntax_tree =
+            *make_compound(vec![Statement::Expr(Box::new(Expr::Operation(
+                Box::new(Expr::Number(3)),
                 Operator::Exponent,
-                Box::new(Expr::Number(1)),
-            )),
-        )))];
+                Box::new(Expr::Operation(
+                    Box::new(Expr::Number(2)),
+                    Operator::Exponent,
+                    Box::new(Expr::Number(1)),
+                )),
+            )))]);
 
         // Act
         let syntax_tree = create_syntax_tree("3 ** 2 ** 1;");
@@ -266,15 +274,16 @@ mod tests {
     fn addition_left_to_right_associativity() {
         //Test if addition is left associative
         // Arrange
-        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Operation(
-            Box::new(Expr::Operation(
-                Box::new(Expr::Number(3)),
+        let expected_syntax_tree =
+            *make_compound(vec![Statement::Expr(Box::new(Expr::Operation(
+                Box::new(Expr::Operation(
+                    Box::new(Expr::Number(3)),
+                    Operator::Addition,
+                    Box::new(Expr::Number(5)),
+                )),
                 Operator::Addition,
-                Box::new(Expr::Number(5)),
-            )),
-            Operator::Addition,
-            Box::new(Expr::Number(2)),
-        )))];
+                Box::new(Expr::Number(2)),
+            )))]);
 
         // Act
         let syntax_tree = create_syntax_tree("3 + 5 + 2;");
@@ -287,15 +296,16 @@ mod tests {
     fn parenteses_have_high_presedence() {
         //Test if parentheses have higher precedence than multiplication
         // Arrange
-        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Operation(
-            Box::new(Expr::Operation(
-                Box::new(Expr::Number(3)),
-                Operator::Addition,
-                Box::new(Expr::Number(5)),
-            )),
-            Operator::Multiplication,
-            Box::new(Expr::Number(2)),
-        )))];
+        let expected_syntax_tree =
+            *make_compound(vec![Statement::Expr(Box::new(Expr::Operation(
+                Box::new(Expr::Operation(
+                    Box::new(Expr::Number(3)),
+                    Operator::Addition,
+                    Box::new(Expr::Number(5)),
+                )),
+                Operator::Multiplication,
+                Box::new(Expr::Number(2)),
+            )))]);
 
         // Act
         let syntax_tree = create_syntax_tree("(3 + 5) * 2;");
@@ -308,12 +318,13 @@ mod tests {
     fn parses_empty_functions() {
         //Test if empty functions are parsed correctly
         // Arrange
-        let expected_syntax_tree = vec![Statement::Declaration(Declaration::Function(
-            TypeConstruct::Int,
-            "b".to_string(),
-            vec![],
-            vec![],
-        ))];
+        let expected_syntax_tree =
+            *make_compound(vec![Statement::Declaration(Declaration::Function(
+                TypeConstruct::Int,
+                "b".to_string(),
+                vec![],
+                make_compound(vec![]),
+            ))]);
 
         // Act
         let syntax_tree = create_syntax_tree("fn int b(){};");
@@ -326,15 +337,16 @@ mod tests {
     fn parses_function_with_parameters_and_body() {
         //Test if functions with parameters are parsed correctly
         // Arrange
-        let expected_syntax_tree = vec![Statement::Declaration(Declaration::Function(
-            TypeConstruct::Int,
-            "b".to_string(),
-            vec![Parameter::Parameter(TypeConstruct::Int, "x".to_string())],
-            vec![Statement::VariableAssignment(
-                "x".to_string(),
-                Box::new(Expr::Number(3)),
-            )],
-        ))];
+        let expected_syntax_tree =
+            *make_compound(vec![Statement::Declaration(Declaration::Function(
+                TypeConstruct::Int,
+                "b".to_string(),
+                vec![Parameter::Parameter(TypeConstruct::Int, "x".to_string())],
+                make_compound(vec![Statement::VariableAssignment(
+                    "x".to_string(),
+                    Box::new(Expr::Number(3)),
+                )]),
+            ))]);
 
         // Act
         let syntax_tree = create_syntax_tree("fn int b(int x){x = 3;};");
@@ -347,7 +359,7 @@ mod tests {
     fn parses_tables_and_rows() {
         // Test if tables and rows are parsed correctly
         // Arrange
-        let expected_syntax_tree = vec![
+        let expected_syntax_tree = *make_compound(vec![
             Statement::Expr(Box::new(Expr::Table(vec![
                 Parameter::Parameter(TypeConstruct::Int, "id".to_string()),
                 Parameter::Parameter(TypeConstruct::String, "name".to_string()),
@@ -364,7 +376,7 @@ mod tests {
                     Box::new(Expr::Identifier("Alice".to_string())),
                 ),
             ]))),
-        ];
+        ]);
 
         // Act
         let syntax_tree =
@@ -378,15 +390,16 @@ mod tests {
     fn parses_boolean_operators() {
         // Test if boolean operators are parsed correctly
         // Arrange
-        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Operation(
-            Box::new(Expr::Operation(
+        let expected_syntax_tree =
+            *make_compound(vec![Statement::Expr(Box::new(Expr::Operation(
+                Box::new(Expr::Operation(
+                    Box::new(Expr::Bool(true)),
+                    Operator::And,
+                    Box::new(Expr::Bool(false)),
+                )),
+                Operator::Or,
                 Box::new(Expr::Bool(true)),
-                Operator::And,
-                Box::new(Expr::Bool(false)),
-            )),
-            Operator::Or,
-            Box::new(Expr::Bool(true)),
-        )))];
+            )))]);
 
         // Act
         let syntax_tree = create_syntax_tree("true and false or true;");
@@ -399,7 +412,8 @@ mod tests {
     fn parses_doubles() {
         // Test if double literals are parsed correctly
         // Arrange
-        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Double(3.14)))];
+        let expected_syntax_tree =
+            *make_compound(vec![Statement::Expr(Box::new(Expr::Double(3.14)))]);
 
         // Act
         let syntax_tree = create_syntax_tree("3.14;");
@@ -412,7 +426,7 @@ mod tests {
     fn parses_null() {
         // Test if null values are parsed correctly
         // Arrange
-        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Null))];
+        let expected_syntax_tree = *make_compound(vec![Statement::Expr(Box::new(Expr::Null))]);
 
         // Act
         let syntax_tree = create_syntax_tree("null;");
@@ -425,9 +439,9 @@ mod tests {
     fn parses_double_negation() {
         // Test if double negation is parsed correctly
         // Arrange
-        let expected_syntax_tree = vec![Statement::Expr(Box::new(Expr::Not(Box::new(Expr::Not(
-            Box::new(Expr::Bool(true)),
-        )))))];
+        let expected_syntax_tree = *make_compound(vec![Statement::Expr(Box::new(Expr::Not(
+            Box::new(Expr::Not(Box::new(Expr::Bool(true)))),
+        )))]);
 
         // Act
         let syntax_tree = create_syntax_tree("!!true;");
