@@ -1,0 +1,6 @@
+name,id,in_stock
+"Widget",101,true
+"Gadget",102,false
+"Doodad",103,true
+"Thingamajig",104,false
+"Whatsit",105,true
