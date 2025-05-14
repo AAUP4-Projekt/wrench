@@ -76,6 +76,7 @@ pub enum Operator {
     LessThan,        // less than (<)
     LessThanOrEqual, // less than or equal (<=)
     Or,              // logical OR
+                     //And
 }
 
 /*
@@ -127,7 +128,8 @@ pub fn ast_not(expr: Box<Expr>) -> Box<Expr> {
 // Syntax sugar
 
 pub fn ast_and(left: Box<Expr>, right: Box<Expr>) -> Box<Expr> {
-    ast_not(ast_or(ast_not(left), ast_not(right))) // De Morgan's law: !(A && B) == !A || !B
+    ast_not(ast_or(ast_not(left), ast_not(right)))
+    //ast_not(ast_or(ast_not(left), ast_not(right))) // De Morgan's law: !(A && B) == !A || !B
 }
 
 pub fn ast_greater_than_or_equal(left: Box<Expr>, right: Box<Expr>) -> Box<Expr> {
