@@ -112,3 +112,21 @@ pub fn env_expand_scope(env: &mut Vec<Vec<EnvironmentCell>>) {
 pub fn env_shrink_scope(env: &mut Vec<Vec<EnvironmentCell>>) {
     env.pop();
 }
+
+pub fn env_clone_functions(env: &mut Vec<Vec<EnvironmentCell>>) -> Vec<Vec<EnvironmentCell>> {
+    let mut new_env = env_new();
+    env_expand_scope(&mut new_env);
+
+    for scope in env.iter() {
+        for declaration in scope.iter() {
+            match declaration {
+                EnvironmentCell::Function(..) => {
+                    env_add(&mut new_env, declaration.clone());
+                }
+                _ => {}
+            }
+        }
+    }
+
+    new_env
+}
