@@ -6,7 +6,10 @@ use std::{collections::HashMap, hash::Hash};
 
 use csv::Reader;
 
-use super::{environment::ExpressionValue, table::{Row, TableCell, TableCellType}};
+use super::{
+    environment::ExpressionValue,
+    table::{Row, TableCell, TableCellType},
+};
 //use csv::{Reader, StringRecord};
 
 pub fn wrench_print(args: Vec<ExpressionValue>) -> ExpressionValue {
@@ -26,8 +29,7 @@ pub fn wrench_print(args: Vec<ExpressionValue>) -> ExpressionValue {
     ExpressionValue::Null
 }
 
-
-pub fn wrench_import(args: Vec<ExpressionValue>) -> ExpressionValue{
+pub fn wrench_import(args: Vec<ExpressionValue>) -> ExpressionValue {
     let file_name = match &args[0] {
         ExpressionValue::String(s) => s.clone(),
         _ => panic!("First argument must be a string"),
@@ -45,9 +47,10 @@ pub fn wrench_import(args: Vec<ExpressionValue>) -> ExpressionValue{
     ExpressionValue::Null
 }
 
-
-
-pub fn import_csv<F>(name: String, structure: HashMap<String, TableCellType>, mut row_callback: F) where F: FnMut(Row) {
+pub fn import_csv<F>(name: String, structure: HashMap<String, TableCellType>, mut row_callback: F)
+where
+    F: FnMut(Row),
+{
     let mut reader = Reader::from_path(name).expect("Failed to open file");
 
     let headers = reader.headers().expect("Error reading headers").clone();
@@ -67,7 +70,9 @@ pub fn import_csv<F>(name: String, structure: HashMap<String, TableCellType>, mu
                     let cell = match structure.get(*name) {
                         Some(TableCellType::Int) => TableCell::Int(value.parse::<i32>().unwrap()),
                         Some(TableCellType::String) => TableCell::String(value.to_string()),
-                        Some(TableCellType::Bool) => TableCell::Bool(value.parse::<bool>().unwrap()),
+                        Some(TableCellType::Bool) => {
+                            TableCell::Bool(value.parse::<bool>().unwrap())
+                        }
                         _ => panic!("Unsupported type in table structure"),
                     };
                     row_data.insert(name.to_string(), cell);
@@ -78,7 +83,6 @@ pub fn import_csv<F>(name: String, structure: HashMap<String, TableCellType>, mu
         }
     }
 }
-
 
 pub fn wrench_table_add_row(args: Vec<ExpressionValue>) -> ExpressionValue {
     let table = match &args[0] {

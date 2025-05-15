@@ -77,5 +77,4 @@ impl Table {
             println!();
         }
     }
-
 }

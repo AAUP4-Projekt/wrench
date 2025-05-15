@@ -1,12 +1,18 @@
 use core::panic;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::frontend::ast::{ColumnAssignmentEnum, Declaration, Expr, Operator, Parameter, Statement, TypeConstruct};
+use crate::frontend::ast::{
+    ColumnAssignmentEnum, Declaration, Expr, Operator, Parameter, Statement, TypeConstruct,
+};
 
 use super::{
     environment::{
-        env_add, env_expand_scope, env_get, env_new, env_shrink_scope, env_update, EnvironmentCell, ExpressionValue, StatementValue
-    }, library::{wrench_import, wrench_print, wrench_table_add_row}, pipes::evaluate_pipes, table::{Row, Table, TableCell, TableCellType}
+        EnvironmentCell, ExpressionValue, StatementValue, env_add, env_expand_scope, env_get,
+        env_new, env_shrink_scope, env_update,
+    },
+    library::{wrench_import, wrench_print, wrench_table_add_row},
+    pipes::evaluate_pipes,
+    table::{Row, Table, TableCell, TableCellType},
 };
 
 const UNIMPLEMENTED_ERROR: &str =
@@ -19,7 +25,10 @@ pub fn interpret(input: Statement) {
 }
 
 //Evaluate single statement
-fn evaluate_statement(statement: Box<Statement>, env: &mut Vec<Vec<EnvironmentCell>>) -> StatementValue {
+fn evaluate_statement(
+    statement: Box<Statement>,
+    env: &mut Vec<Vec<EnvironmentCell>>,
+) -> StatementValue {
     match *statement {
         Statement::Declaration(declaration) => {
             evaluate_declaration(declaration, env);
@@ -36,16 +45,16 @@ fn evaluate_statement(statement: Box<Statement>, env: &mut Vec<Vec<EnvironmentCe
         }
         Statement::Compound(s1, s2) => {
             let s1v = evaluate_statement(s1, env);
-            
+
             match s1v {
                 StatementValue::Return(_) => {
                     return s1v;
                 }
                 _ => {}
             }
-            
+
             let s2v: StatementValue = evaluate_statement(s2, env);
-            
+
             match s2v {
                 StatementValue::Return(_) => {
                     return s1v;
@@ -55,7 +64,7 @@ fn evaluate_statement(statement: Box<Statement>, env: &mut Vec<Vec<EnvironmentCe
                 }
             }
         }
-        Statement::Skip => {StatementValue::None}
+        Statement::Skip => StatementValue::None,
         Statement::Return(expression) => {
             let return_value = evaluate_expression(*expression, env);
             env_shrink_scope(env);
@@ -64,7 +73,7 @@ fn evaluate_statement(statement: Box<Statement>, env: &mut Vec<Vec<EnvironmentCe
         _ => {
             panic!("{}", UNIMPLEMENTED_ERROR);
         }
-        Statement::For(parameter,expression,body) => {
+        Statement::For(parameter, expression, body) => {
             // for x in evaluate_expression(expression, env) {
             //     evaluate_statement(body, env);
             // }
@@ -83,10 +92,9 @@ fn evaluate_statement(statement: Box<Statement>, env: &mut Vec<Vec<EnvironmentCe
             // if array != [] {
             //     evaluate_statement(body, env);
             //     array.pop
-                
+
             // }
             StatementValue::None
-            
         }
     }
 }
@@ -112,7 +120,10 @@ fn evaluate_declaration(declaration: Declaration, env: &mut Vec<Vec<EnvironmentC
     }
 }
 
-pub fn evaluate_expression(expression: Expr, env: &mut Vec<Vec<EnvironmentCell>>) -> ExpressionValue {
+pub fn evaluate_expression(
+    expression: Expr,
+    env: &mut Vec<Vec<EnvironmentCell>>,
+) -> ExpressionValue {
     match expression {
         Expr::Number(n) => ExpressionValue::Number(n),
         Expr::Bool(b) => ExpressionValue::Bool(b),

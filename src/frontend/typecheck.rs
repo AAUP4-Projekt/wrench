@@ -82,14 +82,14 @@ pub fn type_check(
                                 Box::new(return_type.clone()),
                                 param_types,
                             ),
-                            is_constant: false,
+                            is_constant: true,
                         },
                     );
 
-                    // Push a new scope for the function body
-                    push_scope(&mut scope_stack);
+                    let mut function_scope = HashMap::new();
+
                     for Parameter::Parameter(param_type, param_name) in params {
-                        scope_stack.last_mut().unwrap().insert(
+                        function_scope.insert(
                             param_name.clone(),
                             VariableInfo {
                                 var_type: param_type.clone(),
@@ -97,11 +97,14 @@ pub fn type_check(
                             },
                         );
                     }
+
+                    scope_stack.push(function_scope);
+
                     // Type check the function body
                     type_check(&body, scope_stack)?;
 
                     // Pop the function scope
-                    pop_scope(&mut scope_stack);
+                    scope_stack.pop();
                 }
             }
         }
@@ -150,6 +153,10 @@ pub fn type_check(
         // Case: Variable assignment
         Statement::VariableAssignment(name, expr) => {
             if let Some(var_type) = lookup_variable(name, scope_stack) {
+                if (var_type.is_constant) {
+                    return Err(format!("Cannot assign to constant variable '{}'", name));
+                }
+
                 check_and_cast_type(&var_type, expr, scope_stack)?;
                 // Update the variable type in the current scope
                 scope_stack
@@ -242,9 +249,9 @@ fn infer_type(
         // Case: Identifier (e.g., `x`)
         Expr::Identifier(name) => {
             if let Some(var_info) = lookup_variable(name, scope_stack) {
-                if is_global_variable(name, scope_stack) && !var_info.is_constant {
+                if scope_stack.len() > 1 && is_global_variable(name, scope_stack) {
                     return Err(format!(
-                        "Variable '{}' is not a constant and cannot be used in a function",
+                        "Variable '{}' is not accessible in this function",
                         name
                     ));
                 }
@@ -496,7 +503,7 @@ fn infer_type(
         Expr::Table(params) => {
             let mut param_types = Vec::new();
             let mut seen_names = HashSet::new();
-        
+
             for param in params {
                 match param {
                     Parameter::Parameter(param_type, param_name) => {
@@ -507,11 +514,12 @@ fn infer_type(
                                 param_name
                             ));
                         }
-                        param_types.push(Parameter::Parameter(param_type.clone(), param_name.clone()));
+                        param_types
+                            .push(Parameter::Parameter(param_type.clone(), param_name.clone()));
                     }
                 }
             }
-        
+
             Ok(TypedExpr {
                 expr: Expr::Table(params.clone()),
                 expr_type: TypeConstruct::Table(param_types),

@@ -1,8 +1,8 @@
 use core::panic;
 
 use crate::frontend::ast::{Expr, Parameter, Statement, TypeConstruct};
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 use super::table::{Row, Table};
 
@@ -17,7 +17,7 @@ pub enum ExpressionValue {
     Null,
 }
 
-pub enum StatementValue{
+pub enum StatementValue {
     None,
     Return(ExpressionValue),
 }
