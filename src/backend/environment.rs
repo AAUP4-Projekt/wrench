@@ -7,6 +7,83 @@ use std::cell::RefCell;
 use super::table::{Row, Table};
 
 #[derive(Clone)]
+pub struct WrenchFunction{
+    pub return_type: TypeConstruct,
+    pub name: String,
+    pub parameters: Vec<Parameter>,
+    pub body: Box<Statement>,
+    pub closure: Vec<WrenchFunction>,
+}
+
+impl WrenchFunction {
+    pub fn new(
+        return_type: TypeConstruct,
+        name: String,
+        parameters: Vec<Parameter>,
+        body: Box<Statement>,
+        closure: Vec<WrenchFunction>,
+    ) -> Self {
+        WrenchFunction {
+            return_type,
+            name,
+            parameters,
+            body,
+            closure,
+        }
+    }
+    fn to_environment(&self) -> Vec<Vec<EnvironmentCell>> {
+        let mut env = env_new();
+        env_expand_scope(&mut env);
+        env_add(
+            &mut env,
+            EnvironmentCell::Function(self.clone()),
+        );
+        env
+    }
+
+    pub fn get_closure_as_env(&self) -> Vec<Vec<EnvironmentCell>> {
+        let mut env = env_new();
+        env_expand_scope(&mut env);
+        for function in self.closure.iter() {
+            env_add(
+                &mut env,
+                EnvironmentCell::Function(function.clone()),
+            );
+        }
+        env
+    }
+
+}
+
+pub fn env_to_closure(env: &Vec<Vec<EnvironmentCell>>) -> Vec<WrenchFunction> {
+    let mut closure = Vec::new();
+    for scope in env.iter() {
+        for declaration in scope.iter() {
+            match declaration {
+                EnvironmentCell::Function(function) => {
+                    closure.push(function.clone());
+                }
+                _ => {}
+            }
+        }
+    }
+    closure
+}
+
+pub fn closure_to_env(closure: &Vec<WrenchFunction>) -> Vec<Vec<EnvironmentCell>> {
+    let mut env = env_new();
+    env_expand_scope(&mut env);
+    for function in closure.iter() {
+        env_add(
+            &mut env,
+            EnvironmentCell::Function(function.clone()),
+        );
+    }
+    env
+}
+
+
+#[derive(Clone, Debug)]
 pub enum ExpressionValue {
     Number(i32),
     String(String),
@@ -25,13 +102,7 @@ pub enum StatementValue{
 #[derive(Clone)]
 pub enum EnvironmentCell {
     Variable(TypeConstruct, String, ExpressionValue),
-    Function(
-        TypeConstruct,
-        String,
-        Vec<Parameter>,
-        Box<Statement>,
-        Vec<Vec<EnvironmentCell>>,
-    ),
+    Function(WrenchFunction),
 }
 
 fn env_get_optional<'a>(
@@ -46,8 +117,8 @@ fn env_get_optional<'a>(
                         return Some(declaration);
                     }
                 }
-                EnvironmentCell::Function(_, func_name, _, _, _) => {
-                    if func_name == name {
+                EnvironmentCell::Function(function) => {
+                    if function.name == name {
                         return Some(declaration);
                     }
                 }
@@ -61,8 +132,9 @@ pub fn env_new() -> Vec<Vec<EnvironmentCell>> {
     Vec::new()
 }
 
-pub fn env_get(env: &mut Vec<Vec<EnvironmentCell>>, name: &str) -> EnvironmentCell {
-    if let Some(value) = env_get_optional(env, name) {
+pub fn env_get(env: &Vec<Vec<EnvironmentCell>>, name: &str) -> EnvironmentCell {
+    let mut env_mut = env.clone();
+    if let Some(value) = env_get_optional(&mut env_mut, name) {
         return value.clone();
     }
     panic!(
@@ -74,7 +146,7 @@ pub fn env_get(env: &mut Vec<Vec<EnvironmentCell>>, name: &str) -> EnvironmentCe
 pub fn env_add(env: &mut Vec<Vec<EnvironmentCell>>, declaration: EnvironmentCell) {
     let name = match &declaration {
         EnvironmentCell::Variable(_, var_name, _) => var_name,
-        EnvironmentCell::Function(_, func_name, _, _, _) => func_name,
+        EnvironmentCell::Function(function) => function.name.as_str(),
     };
 
     if env_get_optional(env, name).is_some() {

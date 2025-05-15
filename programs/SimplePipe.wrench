@@ -1,2 +1,2 @@
-async_import("programs/data", table(string name, int id, bool in_stock))
+async_import("programs/data/stock.csv", table(string name, int id, bool in_stock))
     pipe print();

@@ -5,7 +5,7 @@ use crate::frontend::ast::{ColumnAssignmentEnum, Declaration, Expr, Operator, Pa
 
 use super::{
     environment::{
-        env_add, env_expand_scope, env_get, env_new, env_shrink_scope, env_update, EnvironmentCell, ExpressionValue, StatementValue
+        env_add, env_expand_scope, env_get, env_new, env_shrink_scope, env_to_closure, env_update, EnvironmentCell, ExpressionValue, StatementValue, WrenchFunction
     }, library::{wrench_import, wrench_print, wrench_table_add_row}, pipes::evaluate_pipes, table::{Row, Table, TableCell, TableCellType}
 };
 
@@ -103,7 +103,7 @@ fn evaluate_declaration(declaration: Declaration, env: &mut Vec<Vec<EnvironmentC
         Declaration::Function(func_type, func_name, parameters, body) => {
             env_add(
                 env,
-                EnvironmentCell::Function(func_type, func_name, parameters, body, env.clone()),
+                EnvironmentCell::Function(WrenchFunction::new(func_type, func_name, parameters, Box::new(*body), env_to_closure(env)))
             );
         }
         _ => {
@@ -183,8 +183,8 @@ pub fn evaluate_expression(expression: Expr, env: &mut Vec<Vec<EnvironmentCell>>
             ExpressionValue::Table(Rc::new(RefCell::new(Table::new(structure))))
         }
         Expr::Pipe(expression, function_name, args) => {
-            //evaluate_pipes(expression, function_name, args, env)
-            ExpressionValue::Null
+            evaluate_pipes(expression, function_name, args, env)
+            //ExpressionValue::Null
         }
         // Expr::Array(args) => {
         //     ExpressionValue::Array((args))
@@ -195,10 +195,10 @@ pub fn evaluate_expression(expression: Expr, env: &mut Vec<Vec<EnvironmentCell>>
     }
 }
 
-fn evaluate_function_call(
+pub fn evaluate_function_call(
     name: String,
     args: Vec<ExpressionValue>,
-    env: &mut Vec<Vec<EnvironmentCell>>,
+    env: &Vec<Vec<EnvironmentCell>>,
 ) -> ExpressionValue {
     match name.as_str() {
         "print" => wrench_print(args),
@@ -206,8 +206,8 @@ fn evaluate_function_call(
         "table_add_row" => wrench_table_add_row(args),
         _ => {
             let function = env_get(env, &name);
-            if let EnvironmentCell::Function(_, _, _, statement, mut closure) = function {
-                let statement_value = evaluate_statement(statement, &mut closure);
+            if let EnvironmentCell::Function(wrench_function) = function {
+                let statement_value = evaluate_statement(wrench_function.body.clone(), &mut wrench_function.get_closure_as_env().clone());
                 match statement_value {
                     StatementValue::Return(value) => value,
                     StatementValue::None => ExpressionValue::Null,

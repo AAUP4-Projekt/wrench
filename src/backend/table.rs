@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use crate::frontend::ast::{Parameter, TypeConstruct};
+
 #[derive(Debug, Clone)]
 pub enum TableCell {
     Int(i32),
@@ -63,6 +65,31 @@ impl Table {
 
     pub fn get_structure(&self) -> &HashMap<String, TableCellType> {
         &self.structure
+    }
+
+    pub fn parameters_to_structure(
+        parameters: Vec<Parameter>,
+    ) -> HashMap<String, TableCellType> {
+        let mut structure = HashMap::new();
+        for param in parameters {
+            match param {
+                Parameter::Parameter(t, name) => match t {
+                    TypeConstruct::Bool => {
+                        structure.insert(name.clone(), TableCellType::Bool);
+                    }
+                    TypeConstruct::Int => {
+                        structure.insert(name.clone(), TableCellType::Int);
+                    }
+                    TypeConstruct::String => {
+                        structure.insert(name.clone(), TableCellType::String);
+                    }
+                    _ => {
+                        panic!("Unsupported type in table declaration")
+                    }
+                },
+            }
+        }
+        structure
     }
 
     pub fn print(&self) {
