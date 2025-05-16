@@ -1,0 +1,7 @@
+fn null first(int x){
+    fn null second(int x){
+        print(x);
+    };
+    second(x);
+};
+first(5);

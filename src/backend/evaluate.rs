@@ -61,9 +61,24 @@ fn evaluate_statement(statement: Box<Statement>, env: &mut Vec<Vec<EnvironmentCe
             env_shrink_scope(env);
             return StatementValue::Return(return_value);
         }
+        Statement::If(e1, s1, s2) => {
+            let condition = evaluate_expression(*e1, env);
+            match condition {
+                ExpressionValue::Bool(true) => {
+                    return evaluate_statement(s1, env);
+                }
+                ExpressionValue::Bool(false) => {
+                    return evaluate_statement(s2, env);
+                }
+                _ => {
+                    panic!("Interpretation error: Condition is not a boolean")
+                }
+            }
+        }
         _ => {
             panic!("{}", UNIMPLEMENTED_ERROR);
         }
+
         Statement::For(parameter,expression,body) => {
             // for x in evaluate_expression(expression, env) {
             //     evaluate_statement(body, env);
@@ -114,6 +129,7 @@ fn evaluate_declaration(declaration: Declaration, env: &mut Vec<Vec<EnvironmentC
 
 pub fn evaluate_expression(expression: Expr, env: &mut Vec<Vec<EnvironmentCell>>) -> ExpressionValue {
     match expression {
+        Expr::Null => ExpressionValue::Null,
         Expr::Number(n) => ExpressionValue::Number(n),
         Expr::Bool(b) => ExpressionValue::Bool(b),
         Expr::StringLiteral(s) => ExpressionValue::String(s),
@@ -186,6 +202,15 @@ pub fn evaluate_expression(expression: Expr, env: &mut Vec<Vec<EnvironmentCell>>
             evaluate_pipes(expression, function_name, args, env)
             //ExpressionValue::Null
         }
+        Expr::Not(expr) => {
+            let evaluated_value = evaluate_expression(*expr, env);
+            match evaluated_value {
+                ExpressionValue::Bool(b) => ExpressionValue::Bool(!b),
+                _ => {
+                    panic!("Interpretation error: Not operator can only be applied to boolean values")
+                }
+            }
+        }
         // Expr::Array(args) => {
         //     ExpressionValue::Array((args))
         // }
@@ -207,7 +232,15 @@ pub fn evaluate_function_call(
         _ => {
             let function = env_get(env, &name);
             if let EnvironmentCell::Function(wrench_function) = function {
-                let statement_value = evaluate_statement(wrench_function.body.clone(), &mut wrench_function.get_closure_as_env().clone());
+
+                let mut fun_env = wrench_function.get_closure_as_env();
+                for (param, arg) in wrench_function.parameters.iter().zip(args.into_iter()) {
+                    let Parameter::Parameter(t, param_name) = param;
+                    env_add(&mut fun_env, EnvironmentCell::Variable(t.clone(), param_name.clone(), arg));
+                }
+                env_add(&mut fun_env, EnvironmentCell::Function(wrench_function.clone()));
+
+                let statement_value = evaluate_statement(wrench_function.body.clone(), &mut fun_env);
                 match statement_value {
                     StatementValue::Return(value) => value,
                     StatementValue::None => ExpressionValue::Null,
@@ -236,9 +269,30 @@ fn evaluate_operation(
                 return ExpressionValue::String(format!("{}{}", l, r));
             }
         }
+        Operator::Subtraction => {
+            if let (ExpressionValue::Number(l), ExpressionValue::Number(r)) = (&left, &right) {
+                return ExpressionValue::Number(l - r);
+            }
+        }
         Operator::Or => {
             if let (ExpressionValue::Bool(l), ExpressionValue::Bool(r)) = (left, right) {
                 return ExpressionValue::Bool(l || r);
+            }
+        }
+        Operator::LessThan => {
+            if let (ExpressionValue::Number(l), ExpressionValue::Number(r)) = (&left, &right) {
+                return ExpressionValue::Bool(l < r);
+            } else if let (ExpressionValue::String(l), ExpressionValue::String(r)) = (&left, &right)
+            {
+                return ExpressionValue::Bool(l < r);
+            }
+        }
+        Operator::LessThanOrEqual => {
+            if let (ExpressionValue::Number(l), ExpressionValue::Number(r)) = (&left, &right) {
+                return ExpressionValue::Bool(l <= r);
+            } else if let (ExpressionValue::String(l), ExpressionValue::String(r)) = (&left, &right)
+            {
+                return ExpressionValue::Bool(l <= r);
             }
         }
         Operator::Equals => {
