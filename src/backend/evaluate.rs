@@ -107,8 +107,32 @@ fn evaluate_statement(statement: Box<Statement>, env: &mut Vec<Vec<EnvironmentCe
             }
         }
 
-        _ => {
-            panic!("{}", UNIMPLEMENTED_ERROR);
+        Statement::While(e,body) => {
+            loop {
+                let condition = evaluate_expression(*e.clone(), env);
+                env_expand_scope(env);
+                match condition {
+                    ExpressionValue::Bool(true) => {
+                        let statement_value = evaluate_statement(body.clone(), env);
+                        match statement_value {
+                            StatementValue::Return(value) => {
+                                env_shrink_scope(env);
+                                return StatementValue::Return(value);
+                            }
+                            StatementValue::None => {}
+                        }
+                    }
+                    ExpressionValue::Bool(false) => {
+                        env_shrink_scope(env);
+                        break;
+                    }
+                    _ => {
+                        panic!("Interpretation error: Condition is not a boolean")
+                    }
+                }
+                env_shrink_scope(env);
+            }
+            StatementValue::None
         }
     }
 }
