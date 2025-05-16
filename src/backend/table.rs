@@ -47,6 +47,9 @@ impl Table {
             structure: s,
         }
     }
+    pub fn iter(&self) -> impl Iterator<Item = &Row> {
+        self.data.iter()
+    }
 
     pub fn add_row(&mut self, row: Row) {
         self.data.push(row);

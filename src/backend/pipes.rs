@@ -1,8 +1,8 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::mpsc, thread};
+use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::mpsc, thread::{self, JoinHandle}};
 
 use crate::frontend::ast::{Expr, Parameter, Statement, TypeConstruct};
 
-use super::{environment::{env_get, EnvironmentCell, ExpressionValue, WrenchFunction}, evaluate::{evaluate_expression, evaluate_function_call}, library::import_csv, table::{Row, Table, TableCellType}};
+use super::{environment::{env_get, EnvironmentCell, ExpressionValue, WrenchFunction}, evaluate::{evaluate_expression, evaluate_function_call}, library::import_csv, table::{self, Row, Table, TableCellType}};
 
 #[derive(Clone)]
 struct SimplePipe {
@@ -11,11 +11,24 @@ struct SimplePipe {
 }
 
 impl SimplePipe{
-    fn get_structure(&self) -> HashMap<String, TableCellType> {
+    fn get_call_structure(&self) -> HashMap<String, TableCellType> {
         if let PipeFunction::Custom(f) = &self.function {
             let Parameter::Parameter(t, s) = f.parameters[0].clone();
             if let TypeConstruct::Table(table_type) = t {
                 return Table::parameters_to_structure(table_type);
+            } else {
+                panic!("Expected a table for the first parameter of the function");
+            }
+        } else {
+            panic!("Expected a custom function for the pipe");
+        }
+    }
+    fn get_return_structure(&self) -> HashMap<String, TableCellType> {
+        if let PipeFunction::Custom(f) = &self.function {
+            if let TypeConstruct::Table(table_type) = f.return_type.clone(){
+                return Table::parameters_to_structure(table_type);
+            } else if let TypeConstruct::Row(row_type) = f.return_type.clone(){
+                return Table::parameters_to_structure(row_type);
             } else {
                 panic!("Expected a table for the first parameter of the function");
             }
@@ -67,52 +80,72 @@ fn pipe_value_to_expression_value(expr: PipeValue) -> ExpressionValue {
     }
 }
 
+fn init_pipe(initial_expression: Box<Expr>, env: &mut Vec<Vec<EnvironmentCell>>) -> (JoinHandle<()>, mpsc::Receiver<Row>) {
+    if let Expr::FunctionCall(name, args) = *initial_expression.clone(){
+        if name == "async_import"{
+            let left_args = args.iter().map(|arg| expression_value_to_pipe_value(evaluate_expression(*arg.clone(), env))).collect::<Vec<PipeValue>>();
+            let (s, r): (mpsc::Sender<Row>, mpsc::Receiver<Row>) = mpsc::channel();
+            let t = thread::spawn({
+                move || {
+                    pipe_import(left_args.clone(), s);
+                }
+            });
+            return (t, r);
+        } else {
+            let expr = evaluate_expression(*initial_expression, env);
+            let (s, r): (mpsc::Sender<Row>, mpsc::Receiver<Row>) = mpsc::channel();
 
+            if let ExpressionValue::Table(t) = expr {
+                let table = t.borrow().clone();
+                
+                let t = thread::spawn({
+                    move || {
+                        pipe_init_table(table, s);
+                    }
+                });
+                return (t, r);
+            } else {
+                panic!("Table expected for the pipe");
+            }
+        }
+    } else {
+        let expr = evaluate_expression(*initial_expression, env);
+        let (s, r): (mpsc::Sender<Row>, mpsc::Receiver<Row>) = mpsc::channel();
+
+        if let ExpressionValue::Table(t) = expr {
+            let table = t.borrow().clone();
+            
+            let t = thread::spawn({
+                move || {
+                    pipe_init_table(table, s);
+                }
+            });
+            return (t, r);
+        } else {
+            panic!("Table expected for the pipe");
+        }
+    }
+}
 
 pub fn evaluate_pipes(expr: Box<Expr>, function_name: String, args: Vec<Box<Expr>>, env: &mut Vec<Vec<EnvironmentCell>>) -> ExpressionValue {
 
     let (pipes, initial_expression) = pipe_rollout(expr.clone(), function_name, args, env);
 
-    let (x_1, y_1): (mpsc::Sender<PipeValue>, mpsc::Receiver<PipeValue>) = mpsc::channel();
+    let (t1, r1) = init_pipe(initial_expression, env);
 
-    let left_args = if let Expr::FunctionCall(_, args) = *initial_expression {
-        args.iter().map(|arg| expression_value_to_pipe_value(evaluate_expression(*arg.clone(), env))).collect::<Vec<PipeValue>>()
-    } else {
-        panic!("Expected a function call for the leftmost side of the pipes");
-    };
+    let last_pipe = pipes.last().unwrap();
 
-    let t_i = thread::spawn(move || {
-            pipe_import(left_args.clone(), x_1);
-    });
+    let mut table = Table::new(last_pipe.get_return_structure());
 
-    let t_e = thread::spawn(move || {
-            pipe_print(y_1);
-    });
+    // Collect the response from the last pipe into table
+    for row in r1.iter() {
+        table.add_row(row.clone());
+    }
 
+    // Make sure threads are finished
+    t1.join().unwrap();
 
-    t_i.join().unwrap();
-    t_e.join().unwrap();
-
-    /*
-
-    let import_structure = if let ExpressionValue::Table(t) = pipes[0].args[1].clone() {
-        t.borrow().get_structure().clone()
-    } else {
-        panic!("Expected a table for the pipe structure");
-    };
-
-
-    let (x_1, y_1): (mpsc::Sender<PipeValue>, mpsc::Receiver<PipeValue>) = mpsc::channel();
-    */
-
-    /*
-    let import_thread = thread::spawn(move || {
-            pipe_test(x_1);
-    });
-    */
-    
-
-    return ExpressionValue::Null;
+    return ExpressionValue::Table(Rc::new(RefCell::new(table)));
 }
 
 fn pipe_rollout(expr: Box<Expr>, function_name: String, args: Vec<Box<Expr>>, env: &mut Vec<Vec<EnvironmentCell>>) -> (Vec<SimplePipe>, Box<Expr>) {
@@ -149,17 +182,8 @@ fn pipe_rollout(expr: Box<Expr>, function_name: String, args: Vec<Box<Expr>>, en
     }
 }
 
-/*
-fn pipe_print(pipes: Vec<SimplePipe>){
-    for pipe in pipes {
-        let function_name = pipe.function_name;
-        println!("Pipe function: {}", function_name);
-    }
-}
-*/
-
 //Imports a CSV file one row at a time and sends it to the next pipe
-fn pipe_import(args: Vec<PipeValue>, sender: mpsc::Sender<PipeValue>){
+fn pipe_import(args: Vec<PipeValue>, sender: mpsc::Sender<Row>){
     let name = if let PipeValue::String(s) = args[0].clone() {
         s
     } else {
@@ -170,23 +194,22 @@ fn pipe_import(args: Vec<PipeValue>, sender: mpsc::Sender<PipeValue>){
     } else {
         panic!("Expected a table for the second argument of pipe_import");
     };
-    let row_callback = |row: Row| {
-        sender.send(PipeValue::Row(row)).unwrap();
+    let row_callback = move |row: Row| {
+        sender.send(row).unwrap();
     };
     import_csv(name, structure, row_callback);
 }
 
-fn pipe_print(receiver: mpsc::Receiver<PipeValue>) {
+fn pipe_init_table(table: Table, sender: mpsc::Sender<Row>) {
+    for row in table.iter() {
+        sender.send(row.clone()).unwrap();
+    }
+}
+
+fn pipe_print(receiver: mpsc::Receiver<Row>) {
     // Evaluate each row at a time
     for row in receiver {
-        match row {
-            PipeValue::Row(r) => {
-                println!("{:?}", r);
-            }
-            _ => {
-                panic!("Expected a row for the pipe_print");
-            }
-        }
+       println!("{:?}", row);
     }
 }
 
