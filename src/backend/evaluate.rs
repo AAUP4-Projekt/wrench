@@ -48,7 +48,7 @@ fn evaluate_statement(statement: Box<Statement>, env: &mut Vec<Vec<EnvironmentCe
             
             match s2v {
                 StatementValue::Return(_) => {
-                    return s1v;
+                    return s2v;
                 }
                 StatementValue::None => {
                     return StatementValue::None;
@@ -99,17 +99,12 @@ fn evaluate_statement(statement: Box<Statement>, env: &mut Vec<Vec<EnvironmentCe
                         }
                         env_shrink_scope(env);
                     }
+                    StatementValue::None
                 }
                 _ => {
                     panic!("Interpretation error: For loop iterator is not a table")
                 }
             }
-
-            env_expand_scope(env);
-
-            env_shrink_scope(env);
-            StatementValue::None
-            
         }
 
         _ => {

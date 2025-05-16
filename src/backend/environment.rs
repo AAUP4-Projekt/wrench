@@ -94,6 +94,7 @@ pub enum ExpressionValue {
     Null,
 }
 
+#[derive(Debug)]
 pub enum StatementValue{
     None,
     Return(ExpressionValue),
