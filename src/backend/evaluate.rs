@@ -101,6 +101,25 @@ fn evaluate_statement(statement: Box<Statement>, env: &mut Vec<Vec<EnvironmentCe
                     }
                     StatementValue::None
                 }
+                ExpressionValue::Array(array) => {
+                    for element in array {
+                        env_expand_scope(env);
+                        env_add(
+                            env,
+                            EnvironmentCell::Variable(t.clone(), n.clone(), element),
+                        );
+                        let statement_value = evaluate_statement(body.clone(), env);
+                        match statement_value {
+                            StatementValue::Return(value) => {
+                                env_shrink_scope(env);
+                                return StatementValue::Return(value);
+                            }
+                            StatementValue::None => {}
+                        }
+                        env_shrink_scope(env);
+                    }
+                    StatementValue::None
+                }
                 _ => {
                     panic!("Interpretation error: For loop iterator is not a table")
                 }
@@ -264,8 +283,33 @@ pub fn evaluate_expression(expression: Expr, env: &mut Vec<Vec<EnvironmentCell>>
             }
 
         }
-        _ => {
-            panic!("Interpretation error: Unsupported expression")
+        Expr::Array(elements) => {
+            let mut evaluated_elements: Vec<ExpressionValue> = Vec::new();
+            for element in elements {
+                evaluated_elements.push(evaluate_expression(*element, env));
+            }
+            ExpressionValue::Array(evaluated_elements)
+        }
+        Expr::Indexing(expr, index) => {
+            let evaluated_value = evaluate_expression(*expr, env);
+            match evaluated_value {
+                ExpressionValue::Array(array) => {
+                    let int_index = match evaluate_expression(*index, env) {
+                        ExpressionValue::Number(n) => n as usize,
+                        _ => {
+                            panic!("Interpretation error: Index must be a integer")
+                        }
+                    };
+                    if int_index < array.len() {
+                        return array[int_index].clone();
+                    } else {
+                        panic!("Interpretation error: Index out of bounds");
+                    }
+                }
+                _ => {
+                    panic!("Interpretation error: Indexing can only be applied to arrays")
+                }
+            }
         }
     }
 }
