@@ -74,17 +74,6 @@ impl Table {
         self.data.push(row);
     }
 
-    pub fn get_row(&self, index: usize) -> Row {
-        match self.data.get(index) {
-            Some(row) => row.clone(),
-            None => panic!("Row index out of bounds"),
-        }
-    }
-
-    pub fn get_column(&self, column_name: &str) -> Vec<ExpressionValue> {
-        self.data.iter().map(|row| row.get(column_name)).collect()
-    }
-
     pub fn get_structure(&self) -> &HashMap<String, TableCellType> {
         &self.structure
     }

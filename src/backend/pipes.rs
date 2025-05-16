@@ -1,8 +1,8 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::mpsc, thread::{self, JoinHandle}};
 
-use crate::frontend::ast::{Expr, Parameter, Statement, TypeConstruct};
+use crate::frontend::ast::{Expr, Parameter, TypeConstruct};
 
-use super::{environment::{env_get, env_to_closure, EnvironmentCell, ExpressionValue, WrenchFunction}, evaluate::{evaluate_custom_function_call, evaluate_expression, evaluate_function_call}, library::{import_csv, wrench_print}, table::{self, Row, Table, TableCellType}};
+use super::{environment::{env_get, EnvironmentCell, ExpressionValue, WrenchFunction}, evaluate::{evaluate_custom_function_call, evaluate_expression}, library::{import_csv, wrench_print}, table::{Row, Table, TableCellType}};
 
 #[derive(Clone)]
 struct SimplePipe {
@@ -13,7 +13,7 @@ struct SimplePipe {
 impl SimplePipe{
     fn get_call_structure(&self) -> HashMap<String, TableCellType> {
         if let PipeFunction::Custom(f) = &self.function {
-            let Parameter::Parameter(t, s) = f.parameters[0].clone();
+            let Parameter::Parameter(t, _) = f.parameters[0].clone();
             if let TypeConstruct::Table(table_type) = t {
                 return Table::parameters_to_structure(table_type);
             } else {
@@ -101,10 +101,6 @@ fn pipe_value_to_expression_value(expr: PipeValue) -> ExpressionValue {
     }
 }
 
-fn pipes_value_to_expression_values(expr: Vec<PipeValue>) -> Vec<ExpressionValue> {
-    expr.into_iter().map(pipe_value_to_expression_value).collect()
-}
-
 fn init_pipe(initial_expression: Box<Expr>, env: &mut Vec<Vec<EnvironmentCell>>) -> (JoinHandle<()>, mpsc::Receiver<Row>) {
     if let Expr::FunctionCall(name, args) = *initial_expression.clone(){
         if name == "async_import"{
@@ -172,7 +168,7 @@ pub fn evaluate_pipes(expr: Box<Expr>, function_name: String, args: Vec<Box<Expr
     let mut table ;
 
     match &last_pipe.function {
-        PipeFunction::Custom(f) => {
+        PipeFunction::Custom(_) => {
             // Collect the response from the last pipe into table
             table = Table::new(last_pipe.get_return_structure());
             for row in rx.iter() {

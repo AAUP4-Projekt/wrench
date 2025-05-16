@@ -9,9 +9,6 @@ use super::{
     }, library::{wrench_import, wrench_print, wrench_table_add_row}, pipes::evaluate_pipes, table::{Row, Table, TableCell, TableCellType}
 };
 
-const UNIMPLEMENTED_ERROR: &str =
-    "Interpretation error: Unimplemented evaluation for abstract syntax tree node";
-
 pub fn interpret(input: Statement) {
     let mut env = env_new();
     env_expand_scope(&mut env);
@@ -79,7 +76,7 @@ fn evaluate_statement(statement: Box<Statement>, env: &mut Vec<Vec<EnvironmentCe
         Statement::For(parameter,expression,body) => {
 
             let iterator = evaluate_expression(*expression, env);
-            let Parameter::Parameter(t, n) = parameter;
+            let Parameter::Parameter(_, n) = parameter;
             match iterator {
                 ExpressionValue::Table(table) => {
                     let table = table.borrow();
@@ -87,7 +84,7 @@ fn evaluate_statement(statement: Box<Statement>, env: &mut Vec<Vec<EnvironmentCe
                         env_expand_scope(env);
                         env_add(
                             env,
-                            EnvironmentCell::Variable(t.clone(), n.clone(), ExpressionValue::Row(row.clone())),
+                            EnvironmentCell::Variable(n.clone(), ExpressionValue::Row(row.clone())),
                         );
                         let statement_value = evaluate_statement(body.clone(), env);
                         match statement_value {
@@ -106,7 +103,7 @@ fn evaluate_statement(statement: Box<Statement>, env: &mut Vec<Vec<EnvironmentCe
                         env_expand_scope(env);
                         env_add(
                             env,
-                            EnvironmentCell::Variable(t.clone(), n.clone(), element),
+                            EnvironmentCell::Variable(n.clone(), element),
                         );
                         let statement_value = evaluate_statement(body.clone(), env);
                         match statement_value {
@@ -158,18 +155,18 @@ fn evaluate_statement(statement: Box<Statement>, env: &mut Vec<Vec<EnvironmentCe
 
 fn evaluate_declaration(declaration: Declaration, env: &mut Vec<Vec<EnvironmentCell>>) {
     match declaration {
-        Declaration::Variable(var_type, var_name, value) => {
+        Declaration::Variable(_, var_name, value) => {
             let evaluated_value = evaluate_expression(*value, env);
             env_add(
                 env,
-                EnvironmentCell::Variable(var_type, var_name, evaluated_value),
+                EnvironmentCell::Variable(var_name, evaluated_value),
             );
         }
-        Declaration::Constant(var_type, var_name, value) => {
+        Declaration::Constant(_, var_name, value) => {
             let evaluated_value = evaluate_expression(*value, env);
             env_add(
                 env,
-                EnvironmentCell::Variable(var_type, var_name, evaluated_value),
+                EnvironmentCell::Variable(var_name, evaluated_value),
             );
         }
         Declaration::Function(func_type, func_name, parameters, body) => {
@@ -194,7 +191,7 @@ pub fn evaluate_expression(expression: Expr, env: &mut Vec<Vec<EnvironmentCell>>
             evaluate_operation(left, op, right)
         }
         Expr::Identifier(ref name) => match env_get(env, &name) {
-            EnvironmentCell::Variable(_, _, value) => value,
+            EnvironmentCell::Variable(_, value) => value,
             EnvironmentCell::Function(..) => {
                 panic!("Interpretation error: Function identifier not allowed as expression")
             }
@@ -329,8 +326,8 @@ pub fn evaluate_function_call(
 
                 let mut fun_env = wrench_function.get_closure_as_env();
                 for (param, arg) in wrench_function.parameters.iter().zip(args.into_iter()) {
-                    let Parameter::Parameter(t, param_name) = param;
-                    env_add(&mut fun_env, EnvironmentCell::Variable(t.clone(), param_name.clone(), arg));
+                    let Parameter::Parameter(_, param_name) = param;
+                    env_add(&mut fun_env, EnvironmentCell::Variable(param_name.clone(), arg));
                 }
                 env_add(&mut fun_env, EnvironmentCell::Function(wrench_function.clone()));
 
@@ -352,8 +349,8 @@ pub fn evaluate_function_call(
 pub fn evaluate_custom_function_call(function: &WrenchFunction, args: Vec<ExpressionValue>) -> ExpressionValue {
     let mut fun_env = function.get_closure_as_env();
     for (param, arg) in function.parameters.iter().zip(args.into_iter()) {
-        let Parameter::Parameter(t, param_name) = param;
-        env_add(&mut fun_env, EnvironmentCell::Variable(t.clone(), param_name.clone(), arg));
+        let Parameter::Parameter(_, param_name) = param;
+        env_add(&mut fun_env, EnvironmentCell::Variable(param_name.clone(), arg));
     }
     env_add(&mut fun_env, EnvironmentCell::Function(function.clone()));
 

@@ -1,6 +1,6 @@
 use core::panic;
 
-use crate::frontend::ast::{Expr, Parameter, Statement, TypeConstruct};
+use crate::frontend::ast::{Parameter, Statement, TypeConstruct};
 use std::rc::Rc;
 use std::cell::RefCell;
 
@@ -30,15 +30,6 @@ impl WrenchFunction {
             body,
             closure,
         }
-    }
-    fn to_environment(&self) -> Vec<Vec<EnvironmentCell>> {
-        let mut env = env_new();
-        env_expand_scope(&mut env);
-        env_add(
-            &mut env,
-            EnvironmentCell::Function(self.clone()),
-        );
-        env
     }
 
     pub fn get_closure_as_env(&self) -> Vec<Vec<EnvironmentCell>> {
@@ -70,18 +61,6 @@ pub fn env_to_closure(env: &Vec<Vec<EnvironmentCell>>) -> Vec<WrenchFunction> {
     closure
 }
 
-pub fn closure_to_env(closure: &Vec<WrenchFunction>) -> Vec<Vec<EnvironmentCell>> {
-    let mut env = env_new();
-    env_expand_scope(&mut env);
-    for function in closure.iter() {
-        env_add(
-            &mut env,
-            EnvironmentCell::Function(function.clone()),
-        );
-    }
-    env
-}
-
 
 #[derive(Clone, Debug)]
 pub enum ExpressionValue {
@@ -103,7 +82,7 @@ pub enum StatementValue{
 
 #[derive(Clone)]
 pub enum EnvironmentCell {
-    Variable(TypeConstruct, String, ExpressionValue),
+    Variable(String, ExpressionValue),
     Function(WrenchFunction),
 }
 
@@ -114,7 +93,7 @@ pub fn env_get_optional<'a>(
     for scope in env.iter_mut().rev() {
         for declaration in scope.iter_mut() {
             match declaration {
-                EnvironmentCell::Variable(_, var_name, _) => {
+                EnvironmentCell::Variable(var_name, _) => {
                     if var_name == name {
                         return Some(declaration);
                     }
@@ -147,7 +126,7 @@ pub fn env_get(env: &Vec<Vec<EnvironmentCell>>, name: &str) -> EnvironmentCell {
 
 pub fn env_add(env: &mut Vec<Vec<EnvironmentCell>>, declaration: EnvironmentCell) {
     let name = match &declaration {
-        EnvironmentCell::Variable(_, var_name, _) => var_name,
+        EnvironmentCell::Variable(var_name, _) => var_name,
         EnvironmentCell::Function(function) => function.name.as_str(),
     };
 
@@ -164,7 +143,7 @@ pub fn env_add(env: &mut Vec<Vec<EnvironmentCell>>, declaration: EnvironmentCell
 pub fn env_update(env: &mut Vec<Vec<EnvironmentCell>>, name: &str, expression: ExpressionValue) {
     if let Some(existing_declaration) = env_get_optional(env, name) {
         match existing_declaration {
-            EnvironmentCell::Variable(_, _, var_expr) => {
+            EnvironmentCell::Variable(_, var_expr) => {
                 *var_expr = expression;
             }
             _ => {
@@ -185,22 +164,4 @@ pub fn env_expand_scope(env: &mut Vec<Vec<EnvironmentCell>>) {
 
 pub fn env_shrink_scope(env: &mut Vec<Vec<EnvironmentCell>>) {
     env.pop();
-}
-
-pub fn env_clone_functions(env: &mut Vec<Vec<EnvironmentCell>>) -> Vec<Vec<EnvironmentCell>> {
-    let mut new_env = env_new();
-    env_expand_scope(&mut new_env);
-
-    for scope in env.iter() {
-        for declaration in scope.iter() {
-            match declaration {
-                EnvironmentCell::Function(..) => {
-                    env_add(&mut new_env, declaration.clone());
-                }
-                _ => {}
-            }
-        }
-    }
-
-    new_env
 }
