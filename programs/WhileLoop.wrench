@@ -1,7 +1,7 @@
 var int x = 5;
 
 while(x > 0){
-    var int y = x - 1;
+    const int y = x - 1;
     print(x);
     x = y;
 }

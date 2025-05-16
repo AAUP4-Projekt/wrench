@@ -146,14 +146,18 @@ fn evaluate_declaration(declaration: Declaration, env: &mut Vec<Vec<EnvironmentC
                 EnvironmentCell::Variable(var_type, var_name, evaluated_value),
             );
         }
+        Declaration::Constant(var_type, var_name, value) => {
+            let evaluated_value = evaluate_expression(*value, env);
+            env_add(
+                env,
+                EnvironmentCell::Variable(var_type, var_name, evaluated_value),
+            );
+        }
         Declaration::Function(func_type, func_name, parameters, body) => {
             env_add(
                 env,
                 EnvironmentCell::Function(WrenchFunction::new(func_type, func_name, parameters, Box::new(*body), env_to_closure(env)))
             );
-        }
-        _ => {
-            panic!("{}", UNIMPLEMENTED_ERROR);
         }
     }
 }
