@@ -60,6 +60,7 @@ enum PipeType {
 #[derive(Clone, Debug)]
 pub enum PipeValue {
     Number(i32),
+    Double(f64),
     String(String),
     Bool(bool),
     Table(Table),
@@ -77,6 +78,7 @@ enum PipeFunction{
 fn expression_value_to_pipe_value(expr: ExpressionValue) -> PipeValue {
     match expr {
         ExpressionValue::Number(n) => PipeValue::Number(n),
+        ExpressionValue::Double(d) => PipeValue::Double(d),
         ExpressionValue::String(s) => PipeValue::String(s),
         ExpressionValue::Bool(b) => PipeValue::Bool(b),
         ExpressionValue::Table(t) => PipeValue::Table(t.borrow().clone()),
@@ -89,6 +91,7 @@ fn expression_value_to_pipe_value(expr: ExpressionValue) -> PipeValue {
 fn pipe_value_to_expression_value(expr: PipeValue) -> ExpressionValue {
     match expr {
         PipeValue::Number(n) => ExpressionValue::Number(n),
+        PipeValue::Double(d) => ExpressionValue::Double(d),
         PipeValue::String(s) => ExpressionValue::String(s),
         PipeValue::Bool(b) => ExpressionValue::Bool(b),
         PipeValue::Table(t) => ExpressionValue::Table(Rc::new(RefCell::new(t))),

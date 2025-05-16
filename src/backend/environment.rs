@@ -86,6 +86,7 @@ pub fn closure_to_env(closure: &Vec<WrenchFunction>) -> Vec<Vec<EnvironmentCell>
 #[derive(Clone, Debug)]
 pub enum ExpressionValue {
     Number(i32),
+    Double(f64),
     String(String),
     Bool(bool),
     Table(Rc<RefCell<Table>>),

@@ -13,6 +13,7 @@ pub fn wrench_print(args: Vec<ExpressionValue>) -> ExpressionValue {
     for arg in args {
         match arg {
             ExpressionValue::Number(num) => println!("{}", num),
+            ExpressionValue::Double(num) => println!("{}", num),
             ExpressionValue::String(s) => println!("{}", s),
             ExpressionValue::Bool(b) => println!("{}", b),
             ExpressionValue::Null => println!("Null"),
@@ -23,7 +24,11 @@ pub fn wrench_print(args: Vec<ExpressionValue>) -> ExpressionValue {
                 let table = table.borrow();
                 table.print();
             }
-            _ => println!("Unsupported expression type for print"),
+            ExpressionValue::Array(arr) => {
+                for item in arr {
+                    wrench_print(vec![item]);
+                }
+            }
         }
     }
     ExpressionValue::Null

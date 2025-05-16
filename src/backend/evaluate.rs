@@ -138,6 +138,7 @@ pub fn evaluate_expression(expression: Expr, env: &mut Vec<Vec<EnvironmentCell>>
     match expression {
         Expr::Null => ExpressionValue::Null,
         Expr::Number(n) => ExpressionValue::Number(n),
+        Expr::Double(d) => ExpressionValue::Double(d),
         Expr::Bool(b) => ExpressionValue::Bool(b),
         Expr::StringLiteral(s) => ExpressionValue::String(s),
         Expr::Operation(e1, op, e2) => {
@@ -235,11 +236,8 @@ pub fn evaluate_expression(expression: Expr, env: &mut Vec<Vec<EnvironmentCell>>
             }
 
         }
-        // Expr::Array(args) => {
-        //     ExpressionValue::Array((args))
-        // }
         _ => {
-            panic!("{}", UNIMPLEMENTED_ERROR);
+            panic!("Interpretation error: Unsupported expression")
         }
     }
 }
@@ -307,11 +305,15 @@ fn evaluate_operation(
             } else if let (ExpressionValue::String(l), ExpressionValue::String(r)) = (&left, &right)
             {
                 return ExpressionValue::String(format!("{}{}", l, r));
+            } else if let (ExpressionValue::Double(l), ExpressionValue::Double(r)) = (&left, &right) {
+                return ExpressionValue::Double(l + r);
             }
         }
         Operator::Subtraction => {
             if let (ExpressionValue::Number(l), ExpressionValue::Number(r)) = (&left, &right) {
                 return ExpressionValue::Number(l - r);
+            } else if let (ExpressionValue::Double(l), ExpressionValue::Double(r)) = (&left, &right) {
+                return ExpressionValue::Double(l - r);
             }
         }
         Operator::Or => {
@@ -322,27 +324,29 @@ fn evaluate_operation(
         Operator::LessThan => {
             if let (ExpressionValue::Number(l), ExpressionValue::Number(r)) = (&left, &right) {
                 return ExpressionValue::Bool(l < r);
-            } else if let (ExpressionValue::String(l), ExpressionValue::String(r)) = (&left, &right)
-            {
+            } else if let (ExpressionValue::Double(l), ExpressionValue::Double(r)) = (&left, &right) {
                 return ExpressionValue::Bool(l < r);
             }
         }
         Operator::LessThanOrEqual => {
             if let (ExpressionValue::Number(l), ExpressionValue::Number(r)) = (&left, &right) {
                 return ExpressionValue::Bool(l <= r);
-            } else if let (ExpressionValue::String(l), ExpressionValue::String(r)) = (&left, &right)
-            {
+            } else if let (ExpressionValue::Double(l), ExpressionValue::Double(r)) = (&left, &right) {
                 return ExpressionValue::Bool(l <= r);
             }
         }
         Operator::Multiplication => {
             if let (ExpressionValue::Number(l), ExpressionValue::Number(r)) = (&left, &right) {
                 return ExpressionValue::Number(l * r);
+            } else if let (ExpressionValue::Double(l), ExpressionValue::Double(r)) = (&left, &right) {
+                return ExpressionValue::Double(l * r);
             }
         }
         Operator::Modulo => {
             if let (ExpressionValue::Number(l), ExpressionValue::Number(r)) = (&left, &right) {
                 return ExpressionValue::Number(l % r);
+            } else if let (ExpressionValue::Double(l), ExpressionValue::Double(r)) = (&left, &right) {
+                return ExpressionValue::Double(l % r);
             }
         }
         Operator::Equals => {
@@ -354,9 +358,24 @@ fn evaluate_operation(
             } else if let (ExpressionValue::String(l), ExpressionValue::String(r)) = (&left, &right)
             {
                 return ExpressionValue::Bool(l == r);
+            } else if let (ExpressionValue::Double(l), ExpressionValue::Double(r)) = (&left, &right) {
+                return ExpressionValue::Bool(l == r);
             }
         }
-        _ => {}
+        Operator::Division => {
+            if let (ExpressionValue::Number(l), ExpressionValue::Number(r)) = (&left, &right) {
+                return ExpressionValue::Number(l / r);
+            } else if let (ExpressionValue::Double(l), ExpressionValue::Double(r)) = (&left, &right) {
+                return ExpressionValue::Double(l / r);
+            }
+        }
+        Operator::Exponent => {
+            if let (ExpressionValue::Number(l), ExpressionValue::Number(r)) = (&left, &right) {
+                return ExpressionValue::Number(l.pow(*r as u32));
+            } else if let (ExpressionValue::Double(l), ExpressionValue::Double(r)) = (&left, &right) {
+                return ExpressionValue::Double(l.powf(*r));
+            }
+        }
     }
     panic!("Interpretation error: Unsupported operation")
 }
