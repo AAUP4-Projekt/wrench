@@ -1,0 +1,20 @@
+fn bool filter_even_id(row(string name, int id, bool in_stock) r){
+    return r.id % 2 == 0;
+};
+
+fn row(int new_id) double_id(row(string name, int id, bool in_stock) t){
+    return row(int new_id = t.id * 2);
+};
+
+fn table(int sum) sum(table(int new_id) t){
+    var int result = 0;
+    for(row(int sum) r in t){
+        result = result + r.new_id;
+    }
+    // Add row -> table interpretation implementation
+};
+
+var table(int before, int after) t = async_import("programs/data/stock.csv", table(string name, int id, bool in_stock))
+    pipe filter_even_id()
+    pipe double_id()
+    pipe print();

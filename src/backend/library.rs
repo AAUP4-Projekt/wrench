@@ -16,6 +16,9 @@ pub fn wrench_print(args: Vec<ExpressionValue>) -> ExpressionValue {
             ExpressionValue::String(s) => println!("{}", s),
             ExpressionValue::Bool(b) => println!("{}", b),
             ExpressionValue::Null => println!("Null"),
+            ExpressionValue::Row(row) => {
+                row.print();
+            }
             ExpressionValue::Table(table) => {
                 let table = table.borrow();
                 table.print();
@@ -42,7 +45,7 @@ pub fn wrench_import(args: Vec<ExpressionValue>) -> ExpressionValue{
         table.add_row(row);
     });
 
-    ExpressionValue::Null
+    args[1].clone()
 }
 
 
@@ -61,7 +64,7 @@ pub fn import_csv<F>(name: String, structure: HashMap<String, TableCellType>, mu
         match result {
             Ok(record) => {
                 //Parse csv record into a row
-                let mut row_data: HashMap<String, TableCell> = HashMap::new();
+                let mut row_data: Vec<(String, TableCell)> = Vec::new();
                 header_map.iter().for_each(|(name, index)| {
                     let value = record.get(*index).unwrap_or("");
                     let cell = match structure.get(*name) {
@@ -70,7 +73,7 @@ pub fn import_csv<F>(name: String, structure: HashMap<String, TableCellType>, mu
                         Some(TableCellType::Bool) => TableCell::Bool(value.parse::<bool>().unwrap()),
                         _ => panic!("Unsupported type in table structure"),
                     };
-                    row_data.insert(name.to_string(), cell);
+                    row_data.push((name.to_string(), cell));
                 });
                 row_callback(Row::new(row_data));
             }

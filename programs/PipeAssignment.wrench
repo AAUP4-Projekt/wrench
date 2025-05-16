@@ -1,8 +1,0 @@
-fn row(int double_id) m(row(string name, int id, bool in_stock) t){
-    return row(int double_id = id);
-};
-
-var table(int double_id) t = async_import("programs/data/stock.csv", table(string name, int id, bool in_stock))
-    pipe m();
-    
-print(t);

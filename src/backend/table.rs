@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 use crate::frontend::ast::{Parameter, TypeConstruct};
 
+use super::environment::ExpressionValue;
+
 #[derive(Debug, Clone)]
 pub enum TableCell {
     Int(i32),
@@ -18,7 +20,7 @@ pub enum TableCellType {
 
 #[derive(Debug, Clone)]
 pub struct Row {
-    data: HashMap<String, TableCell>,
+    data: Vec<(String, TableCell)>,
 }
 
 #[derive(Debug, Clone)]
@@ -28,15 +30,32 @@ pub struct Table {
 }
 
 impl Row {
-    pub fn new(d: HashMap<String, TableCell>) -> Self {
+    pub fn new(d: Vec<(String, TableCell)>) -> Self {
         Row { data: d }
     }
 
-    pub fn get(&self, column_name: &str) -> TableCell {
-        match self.data.get(column_name) {
-            Some(cell) => cell.clone(),
-            None => panic!("Column name not found in row"),
+    pub fn get(&self, column_name: &str) -> ExpressionValue {
+        for (key, value) in &self.data {
+            if key == column_name {
+                return match value {
+                    TableCell::Int(i) => ExpressionValue::Number(*i),
+                    TableCell::String(s) => ExpressionValue::String(s.clone()),
+                    TableCell::Bool(b) => ExpressionValue::Bool(*b),
+                };
+            }
         }
+        panic!("Column name not found in row");
+    }
+
+    pub fn print(&self) {
+        for (key, value) in &self.data {
+            match value {
+                TableCell::Int(i) => print!("{}: {}, ", key, i),
+                TableCell::String(s) => print!("{}: {}, ", key, s),
+                TableCell::Bool(b) => print!("{}: {}, ", key, b),
+            }
+        }
+        println!();
     }
 }
 
@@ -62,7 +81,7 @@ impl Table {
         }
     }
 
-    pub fn get_column(&self, column_name: &str) -> Vec<TableCell> {
+    pub fn get_column(&self, column_name: &str) -> Vec<ExpressionValue> {
         self.data.iter().map(|row| row.get(column_name)).collect()
     }
 
@@ -97,14 +116,7 @@ impl Table {
 
     pub fn print(&self) {
         for row in &self.data {
-            for (key, value) in &row.data {
-                match value {
-                    TableCell::Int(i) => print!("{}: {}, ", key, i),
-                    TableCell::String(s) => print!("{}: {}, ", key, s),
-                    TableCell::Bool(b) => print!("{}: {}, ", key, b),
-                }
-            }
-            println!();
+            row.print();
         }
     }
 

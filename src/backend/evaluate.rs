@@ -75,33 +75,45 @@ fn evaluate_statement(statement: Box<Statement>, env: &mut Vec<Vec<EnvironmentCe
                 }
             }
         }
-        _ => {
-            panic!("{}", UNIMPLEMENTED_ERROR);
-        }
 
         Statement::For(parameter,expression,body) => {
-            // for x in evaluate_expression(expression, env) {
-            //     evaluate_statement(body, env);
-            // }
 
-            // for int x in [1,2,3]{
-            //     print(x);
-            // }
+            let iterator = evaluate_expression(*expression, env);
+            let Parameter::Parameter(t, n) = parameter;
+            match iterator {
+                ExpressionValue::Table(table) => {
+                    let table = table.borrow();
+                    for row in table.iter() {
+                        env_expand_scope(env);
+                        env_add(
+                            env,
+                            EnvironmentCell::Variable(t.clone(), n.clone(), ExpressionValue::Row(row.clone())),
+                        );
+                        let statement_value = evaluate_statement(body.clone(), env);
+                        match statement_value {
+                            StatementValue::Return(value) => {
+                                env_shrink_scope(env);
+                                return StatementValue::Return(value);
+                            }
+                            StatementValue::None => {}
+                        }
+                        env_shrink_scope(env);
+                    }
+                }
+                _ => {
+                    panic!("Interpretation error: For loop iterator is not a table")
+                }
+            }
 
-            // for int x in [2,3]
+            env_expand_scope(env);
 
-            // for int x in [3]
-
-            // DONE
-
-            // let array = evaluate_expression(expression, env);
-            // if array != [] {
-            //     evaluate_statement(body, env);
-            //     array.pop
-                
-            // }
+            env_shrink_scope(env);
             StatementValue::None
             
+        }
+
+        _ => {
+            panic!("{}", UNIMPLEMENTED_ERROR);
         }
     }
 }
@@ -152,20 +164,20 @@ pub fn evaluate_expression(expression: Expr, env: &mut Vec<Vec<EnvironmentCell>>
             evaluate_function_call(name, args, env)
         }
         Expr::Row(column_assignment) => {
-            let mut row: HashMap<String, TableCell> = HashMap::new();
+            let mut row: Vec<(String, TableCell)> = Vec::new();
             for assignment in column_assignment {
                 match assignment {
                     ColumnAssignmentEnum::ColumnAssignment(_, name, expression) => {
                         let evaluated_value = evaluate_expression(*expression, env);
                         match evaluated_value {
                             ExpressionValue::Number(n) => {
-                                row.insert(name.clone(), TableCell::Int(n));
+                                row.push((name.clone(), TableCell::Int(n)));
                             }
                             ExpressionValue::String(s) => {
-                                row.insert(name.clone(), TableCell::String(s));
+                                row.push((name.clone(), TableCell::String(s)));
                             }
                             ExpressionValue::Bool(b) => {
-                                row.insert(name.clone(), TableCell::Bool(b));
+                                row.push((name.clone(), TableCell::Bool(b)));
                             }
                             _ => {
                                 panic!("Interpretation error: Unsupported type in row assignment")
@@ -211,6 +223,23 @@ pub fn evaluate_expression(expression: Expr, env: &mut Vec<Vec<EnvironmentCell>>
                 }
             }
         }
+        Expr::ColumnIndexing(expr,column ) => {
+            let evaluated_value = evaluate_expression(*expr, env);
+            match evaluated_value {
+                ExpressionValue::Row(row) => {
+                    row.get(&column)
+                }
+                /*
+                ExpressionValue::Table(table) => {
+                    table.borrow().get_column(&column)
+                }
+                */
+                _ => {
+                    panic!("Interpretation error: Column indexing can only be applied to rows or tables")
+                }
+            }
+
+        }
         // Expr::Array(args) => {
         //     ExpressionValue::Array((args))
         // }
@@ -255,6 +284,22 @@ pub fn evaluate_function_call(
     }
 }
 
+pub fn evaluate_custom_function_call(function: &WrenchFunction, args: Vec<ExpressionValue>) -> ExpressionValue {
+    let mut fun_env = function.get_closure_as_env();
+    for (param, arg) in function.parameters.iter().zip(args.into_iter()) {
+        let Parameter::Parameter(t, param_name) = param;
+        env_add(&mut fun_env, EnvironmentCell::Variable(t.clone(), param_name.clone(), arg));
+    }
+    env_add(&mut fun_env, EnvironmentCell::Function(function.clone()));
+
+    let statement_value = evaluate_statement(function.body.clone(), &mut fun_env);
+    match statement_value {
+        StatementValue::Return(value) => value,
+        StatementValue::None => ExpressionValue::Null,
+    }
+
+}
+
 fn evaluate_operation(
     left: ExpressionValue,
     operator: Operator,
@@ -293,6 +338,16 @@ fn evaluate_operation(
             } else if let (ExpressionValue::String(l), ExpressionValue::String(r)) = (&left, &right)
             {
                 return ExpressionValue::Bool(l <= r);
+            }
+        }
+        Operator::Multiplication => {
+            if let (ExpressionValue::Number(l), ExpressionValue::Number(r)) = (&left, &right) {
+                return ExpressionValue::Number(l * r);
+            }
+        }
+        Operator::Modulo => {
+            if let (ExpressionValue::Number(l), ExpressionValue::Number(r)) = (&left, &right) {
+                return ExpressionValue::Number(l % r);
             }
         }
         Operator::Equals => {

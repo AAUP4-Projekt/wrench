@@ -105,7 +105,7 @@ pub enum EnvironmentCell {
     Function(WrenchFunction),
 }
 
-fn env_get_optional<'a>(
+pub fn env_get_optional<'a>(
     env: &'a mut Vec<Vec<EnvironmentCell>>,
     name: &str,
 ) -> Option<&'a mut EnvironmentCell> {
