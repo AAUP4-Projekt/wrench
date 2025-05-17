@@ -1,13 +1,13 @@
 use core::panic;
 
 use crate::frontend::ast::{Parameter, Statement, TypeConstruct};
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 use super::table::{Row, Table};
 
 #[derive(Clone)]
-pub struct WrenchFunction{
+pub struct WrenchFunction {
     pub return_type: TypeConstruct,
     pub name: String,
     pub parameters: Vec<Parameter>,
@@ -36,14 +36,10 @@ impl WrenchFunction {
         let mut env = env_new();
         env_expand_scope(&mut env);
         for function in self.closure.iter() {
-            env_add(
-                &mut env,
-                EnvironmentCell::Function(function.clone()),
-            );
+            env_add(&mut env, EnvironmentCell::Function(function.clone()));
         }
         env
     }
-
 }
 
 pub fn env_to_closure(env: &Vec<Vec<EnvironmentCell>>) -> Vec<WrenchFunction> {
@@ -61,7 +57,6 @@ pub fn env_to_closure(env: &Vec<Vec<EnvironmentCell>>) -> Vec<WrenchFunction> {
     closure
 }
 
-
 #[derive(Clone, Debug)]
 pub enum ExpressionValue {
     Number(i32),
@@ -75,7 +70,7 @@ pub enum ExpressionValue {
 }
 
 #[derive(Debug)]
-pub enum StatementValue{
+pub enum StatementValue {
     None,
     Return(ExpressionValue),
 }

@@ -1,12 +1,18 @@
 use core::panic;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::frontend::ast::{ColumnAssignmentEnum, Declaration, Expr, Operator, Parameter, Statement, TypeConstruct};
+use crate::frontend::ast::{
+    ColumnAssignmentEnum, Declaration, Expr, Operator, Parameter, Statement, TypeConstruct,
+};
 
 use super::{
     environment::{
-        env_add, env_expand_scope, env_get, env_new, env_shrink_scope, env_to_closure, env_update, EnvironmentCell, ExpressionValue, StatementValue, WrenchFunction
-    }, library::{wrench_import, wrench_print, wrench_table_add_row}, pipes::evaluate_pipes, table::{Row, Table, TableCell, TableCellType}
+        EnvironmentCell, ExpressionValue, StatementValue, WrenchFunction, env_add,
+        env_expand_scope, env_get, env_new, env_shrink_scope, env_to_closure, env_update,
+    },
+    library::{wrench_import, wrench_print, wrench_table_add_row},
+    pipes::evaluate_pipes,
+    table::{Row, Table, TableCell, TableCellType},
 };
 
 pub fn interpret(input: Statement) {
@@ -16,7 +22,10 @@ pub fn interpret(input: Statement) {
 }
 
 //Evaluate single statement
-fn evaluate_statement(statement: Box<Statement>, env: &mut Vec<Vec<EnvironmentCell>>) -> StatementValue {
+fn evaluate_statement(
+    statement: Box<Statement>,
+    env: &mut Vec<Vec<EnvironmentCell>>,
+) -> StatementValue {
     match *statement {
         Statement::Declaration(declaration) => {
             evaluate_declaration(declaration, env);
@@ -33,16 +42,16 @@ fn evaluate_statement(statement: Box<Statement>, env: &mut Vec<Vec<EnvironmentCe
         }
         Statement::Compound(s1, s2) => {
             let s1v = evaluate_statement(s1, env);
-            
+
             match s1v {
                 StatementValue::Return(_) => {
                     return s1v;
                 }
                 _ => {}
             }
-            
+
             let s2v: StatementValue = evaluate_statement(s2, env);
-            
+
             match s2v {
                 StatementValue::Return(_) => {
                     return s2v;
@@ -52,7 +61,7 @@ fn evaluate_statement(statement: Box<Statement>, env: &mut Vec<Vec<EnvironmentCe
                 }
             }
         }
-        Statement::Skip => {StatementValue::None}
+        Statement::Skip => StatementValue::None,
         Statement::Return(expression) => {
             let return_value = evaluate_expression(*expression, env);
             env_shrink_scope(env);
@@ -73,8 +82,7 @@ fn evaluate_statement(statement: Box<Statement>, env: &mut Vec<Vec<EnvironmentCe
             }
         }
 
-        Statement::For(parameter,expression,body) => {
-
+        Statement::For(parameter, expression, body) => {
             let iterator = evaluate_expression(*expression, env);
             let Parameter::Parameter(_, n) = parameter;
             match iterator {
@@ -101,10 +109,7 @@ fn evaluate_statement(statement: Box<Statement>, env: &mut Vec<Vec<EnvironmentCe
                 ExpressionValue::Array(array) => {
                     for element in array {
                         env_expand_scope(env);
-                        env_add(
-                            env,
-                            EnvironmentCell::Variable(n.clone(), element),
-                        );
+                        env_add(env, EnvironmentCell::Variable(n.clone(), element));
                         let statement_value = evaluate_statement(body.clone(), env);
                         match statement_value {
                             StatementValue::Return(value) => {
@@ -123,7 +128,7 @@ fn evaluate_statement(statement: Box<Statement>, env: &mut Vec<Vec<EnvironmentCe
             }
         }
 
-        Statement::While(e,body) => {
+        Statement::While(e, body) => {
             loop {
                 let condition = evaluate_expression(*e.clone(), env);
                 env_expand_scope(env);
@@ -157,28 +162,31 @@ fn evaluate_declaration(declaration: Declaration, env: &mut Vec<Vec<EnvironmentC
     match declaration {
         Declaration::Variable(_, var_name, value) => {
             let evaluated_value = evaluate_expression(*value, env);
-            env_add(
-                env,
-                EnvironmentCell::Variable(var_name, evaluated_value),
-            );
+            env_add(env, EnvironmentCell::Variable(var_name, evaluated_value));
         }
         Declaration::Constant(_, var_name, value) => {
             let evaluated_value = evaluate_expression(*value, env);
-            env_add(
-                env,
-                EnvironmentCell::Variable(var_name, evaluated_value),
-            );
+            env_add(env, EnvironmentCell::Variable(var_name, evaluated_value));
         }
         Declaration::Function(func_type, func_name, parameters, body) => {
             env_add(
                 env,
-                EnvironmentCell::Function(WrenchFunction::new(func_type, func_name, parameters, Box::new(*body), env_to_closure(env)))
+                EnvironmentCell::Function(WrenchFunction::new(
+                    func_type,
+                    func_name,
+                    parameters,
+                    Box::new(*body),
+                    env_to_closure(env),
+                )),
             );
         }
     }
 }
 
-pub fn evaluate_expression(expression: Expr, env: &mut Vec<Vec<EnvironmentCell>>) -> ExpressionValue {
+pub fn evaluate_expression(
+    expression: Expr,
+    env: &mut Vec<Vec<EnvironmentCell>>,
+) -> ExpressionValue {
     match expression {
         Expr::Null => ExpressionValue::Null,
         Expr::Number(n) => ExpressionValue::Number(n),
@@ -219,6 +227,9 @@ pub fn evaluate_expression(expression: Expr, env: &mut Vec<Vec<EnvironmentCell>>
                             ExpressionValue::Bool(b) => {
                                 row.push((name.clone(), TableCell::Bool(b)));
                             }
+                            ExpressionValue::Double(d) => {
+                                row.push((name.clone(), TableCell::Double(d)));
+                            }
                             _ => {
                                 panic!("Interpretation error: Unsupported type in row assignment")
                             }
@@ -242,6 +253,9 @@ pub fn evaluate_expression(expression: Expr, env: &mut Vec<Vec<EnvironmentCell>>
                         TypeConstruct::String => {
                             structure.insert(name.clone(), TableCellType::String);
                         }
+                        TypeConstruct::Double => {
+                            structure.insert(name.clone(), TableCellType::Double);
+                        }
                         _ => {
                             panic!("Interpretation error: Unsupported type in table declaration")
                         }
@@ -259,26 +273,27 @@ pub fn evaluate_expression(expression: Expr, env: &mut Vec<Vec<EnvironmentCell>>
             match evaluated_value {
                 ExpressionValue::Bool(b) => ExpressionValue::Bool(!b),
                 _ => {
-                    panic!("Interpretation error: Not operator can only be applied to boolean values")
+                    panic!(
+                        "Interpretation error: Not operator can only be applied to boolean values"
+                    )
                 }
             }
         }
-        Expr::ColumnIndexing(expr,column ) => {
+        Expr::ColumnIndexing(expr, column) => {
             let evaluated_value = evaluate_expression(*expr, env);
             match evaluated_value {
-                ExpressionValue::Row(row) => {
-                    row.get(&column)
-                }
+                ExpressionValue::Row(row) => row.get(&column),
                 /*
                 ExpressionValue::Table(table) => {
                     table.borrow().get_column(&column)
                 }
                 */
                 _ => {
-                    panic!("Interpretation error: Column indexing can only be applied to rows or tables")
+                    panic!(
+                        "Interpretation error: Column indexing can only be applied to rows or tables"
+                    )
                 }
             }
-
         }
         Expr::Array(elements) => {
             let mut evaluated_elements: Vec<ExpressionValue> = Vec::new();
@@ -323,15 +338,21 @@ pub fn evaluate_function_call(
         _ => {
             let function = env_get(env, &name);
             if let EnvironmentCell::Function(wrench_function) = function {
-
                 let mut fun_env = wrench_function.get_closure_as_env();
                 for (param, arg) in wrench_function.parameters.iter().zip(args.into_iter()) {
                     let Parameter::Parameter(_, param_name) = param;
-                    env_add(&mut fun_env, EnvironmentCell::Variable(param_name.clone(), arg));
+                    env_add(
+                        &mut fun_env,
+                        EnvironmentCell::Variable(param_name.clone(), arg),
+                    );
                 }
-                env_add(&mut fun_env, EnvironmentCell::Function(wrench_function.clone()));
+                env_add(
+                    &mut fun_env,
+                    EnvironmentCell::Function(wrench_function.clone()),
+                );
 
-                let statement_value = evaluate_statement(wrench_function.body.clone(), &mut fun_env);
+                let statement_value =
+                    evaluate_statement(wrench_function.body.clone(), &mut fun_env);
                 match statement_value {
                     StatementValue::Return(value) => value,
                     StatementValue::None => ExpressionValue::Null,
@@ -346,11 +367,17 @@ pub fn evaluate_function_call(
     }
 }
 
-pub fn evaluate_custom_function_call(function: &WrenchFunction, args: Vec<ExpressionValue>) -> ExpressionValue {
+pub fn evaluate_custom_function_call(
+    function: &WrenchFunction,
+    args: Vec<ExpressionValue>,
+) -> ExpressionValue {
     let mut fun_env = function.get_closure_as_env();
     for (param, arg) in function.parameters.iter().zip(args.into_iter()) {
         let Parameter::Parameter(_, param_name) = param;
-        env_add(&mut fun_env, EnvironmentCell::Variable(param_name.clone(), arg));
+        env_add(
+            &mut fun_env,
+            EnvironmentCell::Variable(param_name.clone(), arg),
+        );
     }
     env_add(&mut fun_env, EnvironmentCell::Function(function.clone()));
 
@@ -359,7 +386,6 @@ pub fn evaluate_custom_function_call(function: &WrenchFunction, args: Vec<Expres
         StatementValue::Return(value) => value,
         StatementValue::None => ExpressionValue::Null,
     }
-
 }
 
 fn evaluate_operation(
@@ -374,47 +400,53 @@ fn evaluate_operation(
             } else if let (ExpressionValue::String(l), ExpressionValue::String(r)) = (&left, &right)
             {
                 return ExpressionValue::String(format!("{}{}", l, r));
-            } else if let (ExpressionValue::Double(l), ExpressionValue::Double(r)) = (&left, &right) {
+            } else if let (ExpressionValue::Double(l), ExpressionValue::Double(r)) = (&left, &right)
+            {
                 return ExpressionValue::Double(l + r);
             }
         }
         Operator::Subtraction => {
             if let (ExpressionValue::Number(l), ExpressionValue::Number(r)) = (&left, &right) {
                 return ExpressionValue::Number(l - r);
-            } else if let (ExpressionValue::Double(l), ExpressionValue::Double(r)) = (&left, &right) {
+            } else if let (ExpressionValue::Double(l), ExpressionValue::Double(r)) = (&left, &right)
+            {
                 return ExpressionValue::Double(l - r);
             }
         }
         Operator::Or => {
-            if let (ExpressionValue::Bool(l), ExpressionValue::Bool(r)) = (left, right) {
-                return ExpressionValue::Bool(l || r);
+            if let (ExpressionValue::Bool(l), ExpressionValue::Bool(r)) = (&left, &right) {
+                return ExpressionValue::Bool(*l || *r);
             }
         }
         Operator::LessThan => {
             if let (ExpressionValue::Number(l), ExpressionValue::Number(r)) = (&left, &right) {
                 return ExpressionValue::Bool(l < r);
-            } else if let (ExpressionValue::Double(l), ExpressionValue::Double(r)) = (&left, &right) {
+            } else if let (ExpressionValue::Double(l), ExpressionValue::Double(r)) = (&left, &right)
+            {
                 return ExpressionValue::Bool(l < r);
             }
         }
         Operator::LessThanOrEqual => {
             if let (ExpressionValue::Number(l), ExpressionValue::Number(r)) = (&left, &right) {
                 return ExpressionValue::Bool(l <= r);
-            } else if let (ExpressionValue::Double(l), ExpressionValue::Double(r)) = (&left, &right) {
+            } else if let (ExpressionValue::Double(l), ExpressionValue::Double(r)) = (&left, &right)
+            {
                 return ExpressionValue::Bool(l <= r);
             }
         }
         Operator::Multiplication => {
             if let (ExpressionValue::Number(l), ExpressionValue::Number(r)) = (&left, &right) {
                 return ExpressionValue::Number(l * r);
-            } else if let (ExpressionValue::Double(l), ExpressionValue::Double(r)) = (&left, &right) {
+            } else if let (ExpressionValue::Double(l), ExpressionValue::Double(r)) = (&left, &right)
+            {
                 return ExpressionValue::Double(l * r);
             }
         }
         Operator::Modulo => {
             if let (ExpressionValue::Number(l), ExpressionValue::Number(r)) = (&left, &right) {
                 return ExpressionValue::Number(l % r);
-            } else if let (ExpressionValue::Double(l), ExpressionValue::Double(r)) = (&left, &right) {
+            } else if let (ExpressionValue::Double(l), ExpressionValue::Double(r)) = (&left, &right)
+            {
                 return ExpressionValue::Double(l % r);
             }
         }
@@ -427,24 +459,30 @@ fn evaluate_operation(
             } else if let (ExpressionValue::String(l), ExpressionValue::String(r)) = (&left, &right)
             {
                 return ExpressionValue::Bool(l == r);
-            } else if let (ExpressionValue::Double(l), ExpressionValue::Double(r)) = (&left, &right) {
+            } else if let (ExpressionValue::Double(l), ExpressionValue::Double(r)) = (&left, &right)
+            {
                 return ExpressionValue::Bool(l == r);
             }
         }
         Operator::Division => {
             if let (ExpressionValue::Number(l), ExpressionValue::Number(r)) = (&left, &right) {
                 return ExpressionValue::Number(l / r);
-            } else if let (ExpressionValue::Double(l), ExpressionValue::Double(r)) = (&left, &right) {
+            } else if let (ExpressionValue::Double(l), ExpressionValue::Double(r)) = (&left, &right)
+            {
                 return ExpressionValue::Double(l / r);
             }
         }
         Operator::Exponent => {
             if let (ExpressionValue::Number(l), ExpressionValue::Number(r)) = (&left, &right) {
                 return ExpressionValue::Number(l.pow(*r as u32));
-            } else if let (ExpressionValue::Double(l), ExpressionValue::Double(r)) = (&left, &right) {
+            } else if let (ExpressionValue::Double(l), ExpressionValue::Double(r)) = (&left, &right)
+            {
                 return ExpressionValue::Double(l.powf(*r));
             }
         }
     }
-    panic!("Interpretation error: Unsupported operation")
+    panic!(
+        "Interpretation error: Unsupported operation for {:?} and {:?}",
+        &left, &right
+    );
 }

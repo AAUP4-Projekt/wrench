@@ -89,7 +89,7 @@ pub fn run(input: &str, debug_mode: bool) {
 
     interpret(syntax_tree);
 
-    /* 
+    /*
 
     // This stack of scopes keeps track of variable names and their types
     let mut scope_stack: Vec<HashMap<String, VariableInfo>> = vec![HashMap::new()];

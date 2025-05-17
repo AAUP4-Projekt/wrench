@@ -496,7 +496,7 @@ fn infer_type(
         Expr::Table(params) => {
             let mut param_types = Vec::new();
             let mut seen_names = HashSet::new();
-        
+
             for param in params {
                 match param {
                     Parameter::Parameter(param_type, param_name) => {
@@ -507,11 +507,12 @@ fn infer_type(
                                 param_name
                             ));
                         }
-                        param_types.push(Parameter::Parameter(param_type.clone(), param_name.clone()));
+                        param_types
+                            .push(Parameter::Parameter(param_type.clone(), param_name.clone()));
                     }
                 }
             }
-        
+
             Ok(TypedExpr {
                 expr: Expr::Table(params.clone()),
                 expr_type: TypeConstruct::Table(param_types),
