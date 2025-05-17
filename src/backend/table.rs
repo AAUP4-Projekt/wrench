@@ -41,7 +41,7 @@ impl Row {
             if key == column_name {
                 return match value {
                     TableCell::Int(i) => ExpressionValue::Number(*i),
-                    TableCell::Double(d) => ExpressionValue::Number(*d as i32),
+                    TableCell::Double(d) => ExpressionValue::Double(*d),
                     TableCell::String(s) => ExpressionValue::String(s.clone()),
                     TableCell::Bool(b) => ExpressionValue::Bool(*b),
                 };
@@ -53,8 +53,8 @@ impl Row {
     pub fn print(&self) {
         for (key, value) in &self.data {
             match value {
-                TableCell::Int(i) => print!("{}: {}, ", key, i),
-                TableCell::Double(d) => print!("{}: {}, ", key, d),
+                TableCell::Int(i) => print!("{}: i {}, ", key, i),
+                TableCell::Double(d) => print!("{}: d {}, ", key, d),
                 TableCell::String(s) => print!("{}: {}, ", key, s),
                 TableCell::Bool(b) => print!("{}: {}, ", key, b),
             }

@@ -482,7 +482,7 @@ fn evaluate_operation(
         }
     }
     panic!(
-        "Interpretation error: Unsupported operation for {:?} and {:?}",
-        &left, &right
+        "Interpretation error: Unsupported operation for {:?} {:?} {:?}",
+        &left, &operator, &right,
     );
 }
