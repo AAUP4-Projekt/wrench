@@ -200,6 +200,57 @@ mod tests {
         assert_eq!(syntax_tree, expected_syntax_tree);
     }
 
+    #[test] //testing in isolation
+    fn test_addition_ast() {
+        let expr = Expr::Operation(
+            Box::new(Expr::Number(2)),
+            Operator::Addition,
+            Box::new(Expr::Number(2)),
+        );
+        assert_eq!(
+            expr,
+            Expr::Operation(
+                Box::new(Expr::Number(2)),
+                Operator::Addition,
+                Box::new(Expr::Number(2)),
+            )
+        )
+    }
+
+    #[test]
+    fn test_composition_statements() {
+        let statements = vec![
+            Statement::Expr(Box::new(Expr::Bool(true))),
+            Statement::Expr(Box::new(Expr::Number(32))),
+        ];
+        let composition = make_compound(statements);
+
+        let expected_ast = Box::new(Statement::Compound(
+            Box::new(Statement::Expr(Box::new(Expr::Bool(true)))),
+            Box::new(Statement::Compound(
+                Box::new(Statement::Expr(Box::new(Expr::Number(32)))),
+                Box::new(Statement::Skip),
+            )),
+        ));
+
+        assert_eq!(composition, expected_ast);
+    }
+
+    #[test]
+    fn test_logical_operators() {
+        let leftside = Box::new(Expr::Bool(true));
+        let rightside = Box::new(Expr::Bool(false));
+
+        let and_expr = ast_and(leftside.clone(), rightside.clone());
+
+        let expected_ast = Box::new(Expr::Not(Box::new(Expr::Operation(
+            Box::new(Expr::Not(leftside)),
+            Operator::Or,
+            Box::new(Expr::Not(rightside)),
+        ))));
+        assert_eq!(and_expr, expected_ast)
+    }
+
     /*
     ========================================================
     Integration Tests for parser
