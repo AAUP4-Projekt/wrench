@@ -252,7 +252,7 @@ mod tests {
     }
 
     #[test]
-    fn parses_if_else_statement() {
+    fn test_parse_if_else() {
         let expected_syntax_tree = Statement::Compound(
             Box::new(Statement::If(
                 Box::new(Expr::Bool(true)),
@@ -274,9 +274,30 @@ mod tests {
             Box::new(Statement::Skip),
         );
 
-        let syntax_tree = create_syntax_tree("if (true) { x = 1; } else { x = 0; }");
+        let actual_syntax_tree = create_syntax_tree("if (true) { x = 1; } else { x = 0; }");
 
-        assert_eq!(syntax_tree, expected_syntax_tree);
+        assert_eq!(actual_syntax_tree, expected_syntax_tree);
+    }
+
+    #[test]
+    fn test_while_loop() {
+        let expected_ast = Statement::Compound(
+            Box::new(Statement::While(
+                Box::new(Expr::Bool(true)),
+                Box::new(Statement::Compound(
+                    Box::new(Statement::VariableAssignment(
+                        "x".to_string(),
+                        Box::new(Expr::Number(1)),
+                    )),
+                    Box::new(Statement::Skip),
+                )),
+            )),
+            Box::new(Statement::Skip),
+        );
+
+        let actual_ast = create_syntax_tree("while (true) { x = 1; }");
+
+        assert_eq!(actual_ast, expected_ast);
     }
 
     /*
