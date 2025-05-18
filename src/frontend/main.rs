@@ -251,6 +251,34 @@ mod tests {
         assert_eq!(and_expr, expected_ast)
     }
 
+    #[test]
+    fn parses_if_else_statement() {
+        let expected_syntax_tree = Statement::Compound(
+            Box::new(Statement::If(
+                Box::new(Expr::Bool(true)),
+                Box::new(Statement::Compound(
+                    Box::new(Statement::VariableAssignment(
+                        "x".to_string(),
+                        Box::new(Expr::Number(1)),
+                    )),
+                    Box::new(Statement::Skip),
+                )),
+                Box::new(Statement::Compound(
+                    Box::new(Statement::VariableAssignment(
+                        "x".to_string(),
+                        Box::new(Expr::Number(0)),
+                    )),
+                    Box::new(Statement::Skip),
+                )),
+            )),
+            Box::new(Statement::Skip),
+        );
+
+        let syntax_tree = create_syntax_tree("if (true) { x = 1; } else { x = 0; }");
+
+        assert_eq!(syntax_tree, expected_syntax_tree);
+    }
+
     /*
     ========================================================
     Integration Tests for parser
