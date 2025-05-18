@@ -7,6 +7,7 @@ use lalrpop_util::{ParseError, lalrpop_mod};
 use logos::Logos;
 
 use crate::frontend::ast::make_compound;
+#[cfg(test)]
 use pretty_assertions::assert_eq;
 
 use super::lexer::Token;
