@@ -4,6 +4,10 @@ use crate::frontend::ast::{Parameter, TypeConstruct};
 
 use super::environment::ExpressionValue;
 
+/*
+ * This file deals with creating and managing tables and rows 
+ */
+
 #[derive(Debug, Clone)]
 pub enum TableCell {
     Int(i32),
@@ -80,6 +84,14 @@ impl Table {
 
     pub fn get_structure(&self) -> &HashMap<String, TableCellType> {
         &self.structure
+    }
+
+    pub fn get_column(&self, column_name: &str) -> ExpressionValue {
+        let mut column_data = Vec::new();
+        for row in &self.data {
+            column_data.push(row.get(column_name));
+        }
+        ExpressionValue::Array(column_data)
     }
 
     pub fn parameters_to_structure(parameters: Vec<Parameter>) -> HashMap<String, TableCellType> {

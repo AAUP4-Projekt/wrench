@@ -1,0 +1,2 @@
+var table(string name, int id, bool in_stock) t = import("programs/data/stock.csv", table(string name, int id, bool in_stock));
+print(t.id);

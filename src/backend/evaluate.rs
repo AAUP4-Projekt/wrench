@@ -15,31 +15,39 @@ use super::{
     table::{Row, Table, TableCell, TableCellType},
 };
 
+/*
+ * This file deals with evaluating the AST
+ */
+
 pub fn interpret(input: Statement) {
     let mut env = env_new();
     env_expand_scope(&mut env);
     evaluate_statement(Box::new(input), &mut env);
 }
 
-//Evaluate single statement
+//Evaluate S in Stmt
 fn evaluate_statement(
     statement: Box<Statement>,
     env: &mut Vec<Vec<EnvironmentCell>>,
 ) -> StatementValue {
     match *statement {
+        //Matches D
         Statement::Declaration(declaration) => {
             evaluate_declaration(declaration, env);
             StatementValue::None
         }
+        //Matches e
         Statement::Expr(expression) => {
             evaluate_expression(*expression, env);
             StatementValue::None
         }
+        //Matches x = e
         Statement::VariableAssignment(variable, expression) => {
             let evaluated_value = evaluate_expression(*expression, env);
             env_update(env, &variable, evaluated_value);
             StatementValue::None
         }
+        //Matches S1;S2
         Statement::Compound(s1, s2) => {
             let s1v = evaluate_statement(s1, env);
 
@@ -61,12 +69,15 @@ fn evaluate_statement(
                 }
             }
         }
+        //Matches skip
         Statement::Skip => StatementValue::None,
+        //Matches return e
         Statement::Return(expression) => {
             let return_value = evaluate_expression(*expression, env);
             env_shrink_scope(env);
             return StatementValue::Return(return_value);
         }
+        //Matches if (e) then {S1} else {S2}
         Statement::If(e1, s1, s2) => {
             let condition = evaluate_expression(*e1, env);
             match condition {
@@ -81,7 +92,7 @@ fn evaluate_statement(
                 }
             }
         }
-
+        //Matches for (T x in e) {S}
         Statement::For(parameter, expression, body) => {
             let iterator = evaluate_expression(*expression, env);
             let Parameter::Parameter(_, n) = parameter;
@@ -127,7 +138,7 @@ fn evaluate_statement(
                 }
             }
         }
-
+        //Matches while(e){S}
         Statement::While(e, body) => {
             loop {
                 let condition = evaluate_expression(*e.clone(), env);
@@ -158,16 +169,20 @@ fn evaluate_statement(
     }
 }
 
+//Evaluate D in Decl
 fn evaluate_declaration(declaration: Declaration, env: &mut Vec<Vec<EnvironmentCell>>) {
     match declaration {
+        //Matches var T x = e
         Declaration::Variable(_, var_name, value) => {
             let evaluated_value = evaluate_expression(*value, env);
             env_add(env, EnvironmentCell::Variable(var_name, evaluated_value));
         }
+        //Matches const T x = e
         Declaration::Constant(_, var_name, value) => {
             let evaluated_value = evaluate_expression(*value, env);
             env_add(env, EnvironmentCell::Variable(var_name, evaluated_value));
         }
+        //Matches function T x (T x) {S}
         Declaration::Function(func_type, func_name, parameters, body) => {
             env_add(
                 env,
@@ -183,27 +198,36 @@ fn evaluate_declaration(declaration: Declaration, env: &mut Vec<Vec<EnvironmentC
     }
 }
 
+//Evaluate e in Expr
 pub fn evaluate_expression(
     expression: Expr,
     env: &mut Vec<Vec<EnvironmentCell>>,
 ) -> ExpressionValue {
     match expression {
+        //Matches null
         Expr::Null => ExpressionValue::Null,
+        //Matches n
         Expr::Number(n) => ExpressionValue::Number(n),
+        //Matches d
         Expr::Double(d) => ExpressionValue::Double(d),
+        //Matches b
         Expr::Bool(b) => ExpressionValue::Bool(b),
+        //Matches s
         Expr::StringLiteral(s) => ExpressionValue::String(s),
+        //Matches e1 o e2
         Expr::Operation(e1, op, e2) => {
             let left = evaluate_expression(*e1, env);
             let right = evaluate_expression(*e2, env);
             evaluate_operation(left, op, right)
         }
+        //Matches x
         Expr::Identifier(ref name) => match env_get(env, &name) {
             EnvironmentCell::Variable(_, value) => value,
             EnvironmentCell::Function(..) => {
                 panic!("Interpretation error: Function identifier not allowed as expression")
             }
         },
+        //Matches x(e)
         Expr::FunctionCall(name, expressions) => {
             let mut args: Vec<ExpressionValue> = Vec::new();
             for expression in expressions {
@@ -211,6 +235,7 @@ pub fn evaluate_expression(
             }
             evaluate_function_call(name, args, env)
         }
+        //Matches row(T x = e)
         Expr::Row(column_assignment) => {
             let mut row: Vec<(String, TableCell)> = Vec::new();
             for assignment in column_assignment {
@@ -239,6 +264,7 @@ pub fn evaluate_expression(
             }
             ExpressionValue::Row(Row::new(row))
         }
+        //Matches table(T x)
         Expr::Table(params) => {
             let mut structure: HashMap<String, TableCellType> = HashMap::new();
             for param in params {
@@ -264,10 +290,12 @@ pub fn evaluate_expression(
             }
             ExpressionValue::Table(Rc::new(RefCell::new(Table::new(structure))))
         }
+        //Matches e1 pipe x(e2)
         Expr::Pipe(expression, function_name, args) => {
             evaluate_pipes(expression, function_name, args, env)
             //ExpressionValue::Null
         }
+        //Matches !e
         Expr::Not(expr) => {
             let evaluated_value = evaluate_expression(*expr, env);
             match evaluated_value {
@@ -279,15 +307,12 @@ pub fn evaluate_expression(
                 }
             }
         }
+        //Matches e.x
         Expr::ColumnIndexing(expr, column) => {
             let evaluated_value = evaluate_expression(*expr, env);
             match evaluated_value {
                 ExpressionValue::Row(row) => row.get(&column),
-                /*
-                ExpressionValue::Table(table) => {
-                    table.borrow().get_column(&column)
-                }
-                */
+                ExpressionValue::Table(table) => table.borrow().get_column(&column),
                 _ => {
                     panic!(
                         "Interpretation error: Column indexing can only be applied to rows or tables"
@@ -295,6 +320,7 @@ pub fn evaluate_expression(
                 }
             }
         }
+        //Matches [e]
         Expr::Array(elements) => {
             let mut evaluated_elements: Vec<ExpressionValue> = Vec::new();
             for element in elements {
@@ -302,6 +328,7 @@ pub fn evaluate_expression(
             }
             ExpressionValue::Array(evaluated_elements)
         }
+        //Matches e1[e2]
         Expr::Indexing(expr, index) => {
             let evaluated_value = evaluate_expression(*expr, env);
             match evaluated_value {
@@ -326,68 +353,7 @@ pub fn evaluate_expression(
     }
 }
 
-pub fn evaluate_function_call(
-    name: String,
-    args: Vec<ExpressionValue>,
-    env: &Vec<Vec<EnvironmentCell>>,
-) -> ExpressionValue {
-    match name.as_str() {
-        "print" => wrench_print(args),
-        "import" => wrench_import(args),
-        "table_add_row" => wrench_table_add_row(args),
-        _ => {
-            let function = env_get(env, &name);
-            if let EnvironmentCell::Function(wrench_function) = function {
-                let mut fun_env = wrench_function.get_closure_as_env();
-                for (param, arg) in wrench_function.parameters.iter().zip(args.into_iter()) {
-                    let Parameter::Parameter(_, param_name) = param;
-                    env_add(
-                        &mut fun_env,
-                        EnvironmentCell::Variable(param_name.clone(), arg),
-                    );
-                }
-                env_add(
-                    &mut fun_env,
-                    EnvironmentCell::Function(wrench_function.clone()),
-                );
-
-                let statement_value =
-                    evaluate_statement(wrench_function.body.clone(), &mut fun_env);
-                match statement_value {
-                    StatementValue::Return(value) => value,
-                    StatementValue::None => ExpressionValue::Null,
-                }
-            } else {
-                panic!(
-                    "Interpretation error: Identifier '{:?}' is not a function",
-                    name
-                );
-            }
-        }
-    }
-}
-
-pub fn evaluate_custom_function_call(
-    function: &WrenchFunction,
-    args: Vec<ExpressionValue>,
-) -> ExpressionValue {
-    let mut fun_env = function.get_closure_as_env();
-    for (param, arg) in function.parameters.iter().zip(args.into_iter()) {
-        let Parameter::Parameter(_, param_name) = param;
-        env_add(
-            &mut fun_env,
-            EnvironmentCell::Variable(param_name.clone(), arg),
-        );
-    }
-    env_add(&mut fun_env, EnvironmentCell::Function(function.clone()));
-
-    let statement_value = evaluate_statement(function.body.clone(), &mut fun_env);
-    match statement_value {
-        StatementValue::Return(value) => value,
-        StatementValue::None => ExpressionValue::Null,
-    }
-}
-
+//Evaluate o in Op
 fn evaluate_operation(
     left: ExpressionValue,
     operator: Operator,
@@ -485,4 +451,70 @@ fn evaluate_operation(
         "Interpretation error: Unsupported operation for {:?} {:?} {:?}",
         &left, &operator, &right,
     );
+}
+
+
+//Helper function to evaluate function calls
+pub fn evaluate_function_call(
+    name: String,
+    args: Vec<ExpressionValue>,
+    env: &Vec<Vec<EnvironmentCell>>,
+) -> ExpressionValue {
+    match name.as_str() {
+        //Try to match build in functions. Else try to match user defined functions
+        "print" => wrench_print(args),
+        "import" => wrench_import(args),
+        "table_add_row" => wrench_table_add_row(args),
+        _ => {
+            let function = env_get(env, &name);
+            if let EnvironmentCell::Function(wrench_function) = function {
+                let mut fun_env = wrench_function.get_closure_as_env();
+                for (param, arg) in wrench_function.parameters.iter().zip(args.into_iter()) {
+                    let Parameter::Parameter(_, param_name) = param;
+                    env_add(
+                        &mut fun_env,
+                        EnvironmentCell::Variable(param_name.clone(), arg),
+                    );
+                }
+                env_add(
+                    &mut fun_env,
+                    EnvironmentCell::Function(wrench_function.clone()),
+                );
+
+                let statement_value =
+                    evaluate_statement(wrench_function.body.clone(), &mut fun_env);
+                match statement_value {
+                    StatementValue::Return(value) => value,
+                    StatementValue::None => ExpressionValue::Null,
+                }
+            } else {
+                panic!(
+                    "Interpretation error: Identifier '{:?}' is not a function",
+                    name
+                );
+            }
+        }
+    }
+}
+
+//Evaluate calls of user defined function
+pub fn evaluate_custom_function_call(
+    function: &WrenchFunction,
+    args: Vec<ExpressionValue>,
+) -> ExpressionValue {
+    let mut fun_env = function.get_closure_as_env();
+    for (param, arg) in function.parameters.iter().zip(args.into_iter()) {
+        let Parameter::Parameter(_, param_name) = param;
+        env_add(
+            &mut fun_env,
+            EnvironmentCell::Variable(param_name.clone(), arg),
+        );
+    }
+    env_add(&mut fun_env, EnvironmentCell::Function(function.clone()));
+
+    let statement_value = evaluate_statement(function.body.clone(), &mut fun_env);
+    match statement_value {
+        StatementValue::Return(value) => value,
+        StatementValue::None => ExpressionValue::Null,
+    }
 }
