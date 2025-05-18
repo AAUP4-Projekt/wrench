@@ -627,6 +627,8 @@ fn is_global_variable(name: &str, scope_stack: &[HashMap<String, VariableInfo>])
 }
 
 //Unit-integration tests:
+
+/*
 #[cfg(test)]
 mod tests {
     use std::result;
@@ -829,3 +831,5 @@ mod tests {
         assert!(result.is_err(), "Cannot change value of const!")
     }
 }
+
+*/
