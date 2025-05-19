@@ -293,7 +293,6 @@ mod tests {
             Some(Ok(Token::Identifier("ifier".to_string())))
         );
     }
-
     #[test]
     fn invalid_input() {
         let mut lexer = Token::lexer("@ £ §");
