@@ -11,7 +11,7 @@ use super::ast::{
 // - `scope_stack`: A mutable reference to the stack of variable scopes (used for scoping rules)
 pub fn type_check(
     statement: &Statement,
-    mut scope_stack: &mut Vec<HashMap<String, VariableInfo>>,
+    scope_stack: &mut Vec<HashMap<String, VariableInfo>>,
     global_stack: &HashMap<String, VariableInfo>,
 ) -> Result<(), String> {
     // Match on the type of statement to handle different cases
@@ -24,8 +24,8 @@ pub fn type_check(
         // Case: Compound statement (two statements executed sequentially)
         Statement::Compound(stmt1, stmt2) => {
             // Type check both statements in the compound statement
-            type_check(stmt1, scope_stack, &global_stack)?;
-            type_check(stmt2, scope_stack, &global_stack)?;
+            type_check(stmt1, scope_stack, global_stack)?;
+            type_check(stmt2, scope_stack, global_stack)?;
         }
 
         // Case: Variable declaration
@@ -106,7 +106,7 @@ pub fn type_check(
 
                     // Type check the function body using the new function scope
                     let mut function_scope_stack = vec![function_scope];
-                    type_check(&body, &mut function_scope_stack, global_stack)?;
+                    type_check(body, &mut function_scope_stack, global_stack)?;
                 }
             }
         }
@@ -118,7 +118,7 @@ pub fn type_check(
             // Match on the type of the iterable expression
             match &typed_iterable.expr_type {
                 TypeConstruct::Array(element_type) => {
-                    push_scope(&mut scope_stack);
+                    push_scope(scope_stack);
 
                     // Match on the parameter type
                     match param {
@@ -139,9 +139,9 @@ pub fn type_check(
                         }
                     }
 
-                    type_check(&body, scope_stack, &global_stack)?;
+                    type_check(body, scope_stack, global_stack)?;
 
-                    pop_scope(&mut scope_stack);
+                    pop_scope(scope_stack);
                 }
                 _ => {
                     return Err(format!(
@@ -154,7 +154,7 @@ pub fn type_check(
 
         // Case: Variable assignment
         Statement::VariableAssignment(name, expr) => {
-            if let Some(var_type) = lookup_variable(name, scope_stack, &global_stack) {
+            if let Some(var_type) = lookup_variable(name, scope_stack, global_stack) {
                 if var_type.is_constant {
                     return Err(format!("Cannot assign to constant variable '{}'", name));
                 }
@@ -183,14 +183,14 @@ pub fn type_check(
             }
 
             // Push a new scope for the if body
-            push_scope(&mut scope_stack);
-            type_check(&body, scope_stack, global_stack)?;
-            pop_scope(&mut scope_stack);
+            push_scope(scope_stack);
+            type_check(body, scope_stack, global_stack)?;
+            pop_scope(scope_stack);
 
             // Push a new scope for the else body
-            push_scope(&mut scope_stack);
-            type_check(else_body, scope_stack, &global_stack)?;
-            pop_scope(&mut scope_stack);
+            push_scope(scope_stack);
+            type_check(else_body, scope_stack, global_stack)?;
+            pop_scope(scope_stack);
         }
 
         // Case: While statement
@@ -201,9 +201,9 @@ pub fn type_check(
             }
 
             // Push a new scope for the while body
-            push_scope(&mut scope_stack);
-            type_check(&body, scope_stack, global_stack)?;
-            pop_scope(&mut scope_stack);
+            push_scope(scope_stack);
+            type_check(body, scope_stack, global_stack)?;
+            pop_scope(scope_stack);
         }
 
         // Case: return statement
@@ -218,7 +218,7 @@ pub fn type_check(
 // Function to infer the type of an expression
 fn infer_type(
     expr: &Expr,
-    mut scope_stack: &mut Vec<HashMap<String, VariableInfo>>,
+    scope_stack: &mut Vec<HashMap<String, VariableInfo>>,
     global_stack: &HashMap<String, VariableInfo>,
 ) -> Result<TypedExpr, String> {
     match expr {
@@ -273,7 +273,7 @@ fn infer_type(
                     is_constant: false,
                 },
                 &left_typed.expr,
-                &mut scope_stack,
+                scope_stack,
                 global_stack,
             )?;
             let widened_right = check_and_cast_type(
@@ -282,7 +282,7 @@ fn infer_type(
                     is_constant: false,
                 },
                 &right_typed.expr,
-                &mut scope_stack,
+                scope_stack,
                 global_stack,
             )?;
             // Determine the result type based on the operator and operand types
@@ -311,7 +311,7 @@ fn infer_type(
                         if let Operator::Division = op {
                             match &right_typed.expr {
                                 Expr::Number(0) | Expr::Double(0.0) => {
-                                    return Err(format!("Division by zero is not allowed"));
+                                    return Err("Division by zero is not allowed".to_string());
                                 }
                                 _ => {}
                             }
@@ -609,7 +609,7 @@ fn check_and_cast_type(
     scope_stack: &mut Vec<HashMap<String, VariableInfo>>,
     global_stack: &HashMap<String, VariableInfo>,
 ) -> Result<Expr, String> {
-    let typed_expr = infer_type(expr, scope_stack, &global_stack)?;
+    let typed_expr = infer_type(expr, scope_stack, global_stack)?;
 
     match (&expected_type.var_type, &typed_expr.expr_type) {
         // Implicit cast from Int to Double allowed
