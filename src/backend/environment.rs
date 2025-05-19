@@ -109,9 +109,18 @@ pub fn env_new() -> Vec<Vec<EnvironmentCell>> {
 }
 
 pub fn env_get(env: &Vec<Vec<EnvironmentCell>>, name: &str) -> EnvironmentCell {
-    let mut env_mut = env.clone();
-    if let Some(value) = env_get_optional(&mut env_mut, name) {
-        return value.clone();
+    for scope in env.iter().rev() {
+        for declaration in scope.iter() {
+            match declaration {
+                EnvironmentCell::Variable(var_name, value) if var_name == name => {
+                    return EnvironmentCell::Variable(var_name.clone(), value.clone());
+                }
+                EnvironmentCell::Function(function) if function.name == name => {
+                    return EnvironmentCell::Function(function.clone());
+                }
+                _ => {}
+            }
+        }
     }
     panic!(
         "Interpretation error. The identifier '{:?}' not found",

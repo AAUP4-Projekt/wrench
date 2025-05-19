@@ -15,3 +15,4 @@ lalrpop = "0.22.1"
 # Cargo.toml
 [dev-dependencies]
 pretty_assertions = "1"
+

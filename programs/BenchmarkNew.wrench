@@ -1,0 +1,9 @@
+var double s = 0.0;
+for (
+    row(double residual_sugar, double density, double fixed_acidity, double pH, double chlorides) r 
+    in 
+    import("programs/data/wine.csv", table(double residual_sugar, double density, double fixed_acidity, double pH, double chlorides)))
+{
+    s = s + r.residual_sugar;
+}
+print(s);

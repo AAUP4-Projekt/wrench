@@ -199,13 +199,13 @@ pub fn evaluate_expression(
             evaluate_operation(left, op, right)
         }
         Expr::Identifier(ref name) => match env_get(env, &name) {
-            EnvironmentCell::Variable(_, value) => value,
+            EnvironmentCell::Variable(_, ref value) => value.clone(),
             EnvironmentCell::Function(..) => {
                 panic!("Interpretation error: Function identifier not allowed as expression")
             }
         },
         Expr::FunctionCall(name, expressions) => {
-            let mut args: Vec<ExpressionValue> = Vec::new();
+            let mut args: Vec<ExpressionValue> = Vec::with_capacity(expressions.len());
             for expression in expressions {
                 args.push(evaluate_expression(*expression, env));
             }
