@@ -4,11 +4,12 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-lalrpop-util = { version = "0.22.1", features = [
-    "unicode"
-]}
+lalrpop-util = { version = "0.22.1", features = ["unicode"] }
 logos = "0.15"
 csv = "1.3"
-
 [build-dependencies]
 lalrpop = "0.22.1"
+
+# Cargo.toml
+[dev-dependencies]
+pretty_assertions = "1"

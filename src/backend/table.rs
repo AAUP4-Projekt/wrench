@@ -64,4 +64,17 @@ impl Table {
     pub fn get_structure(&self) -> &HashMap<String, TableCellType> {
         &self.structure
     }
+
+    pub fn print(&self) {
+        for row in &self.data {
+            for (key, value) in &row.data {
+                match value {
+                    TableCell::Int(i) => print!("{}: {}, ", key, i),
+                    TableCell::String(s) => print!("{}: {}, ", key, s),
+                    TableCell::Bool(b) => print!("{}: {}, ", key, b),
+                }
+            }
+            println!();
+        }
+    }
 }

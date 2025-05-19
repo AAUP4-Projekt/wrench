@@ -25,7 +25,6 @@ fn main() {
         panic!("Usage: {} <file_name> [debug=true]", args[0]);
     }
     let file_name = &args[1];
-
     //Read file given as command arg
     match fs::read_to_string(file_name) {
         Ok(input) => {

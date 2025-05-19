@@ -1,16 +1,25 @@
 use core::panic;
 
 use crate::frontend::ast::{Expr, Parameter, Statement, TypeConstruct};
+use std::cell::RefCell;
+use std::rc::Rc;
 
-use super::table::Table;
+use super::table::{Row, Table};
 
 #[derive(Clone)]
 pub enum ExpressionValue {
     Number(i32),
     String(String),
     Bool(bool),
-    Table(Table),
+    Table(Rc<RefCell<Table>>),
+    Row(Row),
+    Array(Vec<ExpressionValue>),
     Null,
+}
+
+pub enum StatementValue {
+    None,
+    Return(ExpressionValue),
 }
 
 #[derive(Clone)]
@@ -102,4 +111,22 @@ pub fn env_expand_scope(env: &mut Vec<Vec<EnvironmentCell>>) {
 
 pub fn env_shrink_scope(env: &mut Vec<Vec<EnvironmentCell>>) {
     env.pop();
+}
+
+pub fn env_clone_functions(env: &mut Vec<Vec<EnvironmentCell>>) -> Vec<Vec<EnvironmentCell>> {
+    let mut new_env = env_new();
+    env_expand_scope(&mut new_env);
+
+    for scope in env.iter() {
+        for declaration in scope.iter() {
+            match declaration {
+                EnvironmentCell::Function(..) => {
+                    env_add(&mut new_env, declaration.clone());
+                }
+                _ => {}
+            }
+        }
+    }
+
+    new_env
 }

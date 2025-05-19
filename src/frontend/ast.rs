@@ -11,6 +11,12 @@ pub struct TypedExpr {
 }
 
 #[derive(PartialEq, Debug, Clone)]
+pub struct VariableInfo {
+    pub var_type: TypeConstruct,
+    pub is_constant: bool,
+}
+
+#[derive(PartialEq, Debug, Clone)]
 pub enum Statement {
     Expr(Box<Expr>),                               // Represents an expression statement
     VariableAssignment(String, Box<Expr>), // Represents a variable assignment with its name and value
@@ -61,6 +67,7 @@ pub enum TypeConstruct {
     Function(Box<TypeConstruct>, Vec<TypeConstruct>), // Represents a function type with return type and parameter types
     Table(Vec<Parameter>),                            // Represents a table type with its columns
     Row(Vec<Parameter>),                              // Represents a row type with its columns
+    Any,                                              // Represents any type used for print
 }
 
 // Enum representing the different types of operations
@@ -76,6 +83,7 @@ pub enum Operator {
     LessThan,        // less than (<)
     LessThanOrEqual, // less than or equal (<=)
     Or,              // logical OR
+                     //And
 }
 
 /*
@@ -127,7 +135,8 @@ pub fn ast_not(expr: Box<Expr>) -> Box<Expr> {
 // Syntax sugar
 
 pub fn ast_and(left: Box<Expr>, right: Box<Expr>) -> Box<Expr> {
-    ast_not(ast_or(ast_not(left), ast_not(right))) // De Morgan's law: !(A && B) == !A || !B
+    ast_not(ast_or(ast_not(left), ast_not(right)))
+    //ast_not(ast_or(ast_not(left), ast_not(right))) // De Morgan's law: !(A && B) == !A || !B
 }
 
 pub fn ast_greater_than_or_equal(left: Box<Expr>, right: Box<Expr>) -> Box<Expr> {
