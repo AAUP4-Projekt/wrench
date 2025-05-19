@@ -2,10 +2,19 @@ var int x = 3;
 const string text = "hej";
 
 fn string testFunc(string a) {
+    var string text = "test";
     print(text);
     return a;
 };
 
-testFunc(text);
 
-var table(int x, string yName, double z) myTable = table(int x, string yName, double hej);
+
+var table(string hej) hejTable = table(string hej);
+
+var row(string hej) hejRow = row(string hej = "hej");
+
+hejRow.hej;
+hejTable[0];
+
+
+

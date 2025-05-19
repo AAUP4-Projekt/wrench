@@ -58,12 +58,28 @@ fn parse(tokens: Vec<(usize, Token, usize)>) -> Statement {
     }
 }
 
+// Define a global environment for functions
+fn create_global_environment() -> HashMap<String, VariableInfo> {
+    let mut global_env = HashMap::new();
+    global_env.insert(
+        "print".to_string(),
+        VariableInfo {
+            var_type: TypeConstruct::Function(
+                Box::new(TypeConstruct::Null),
+                vec![TypeConstruct::Any],
+            ),
+            is_constant: false,
+        },
+    );
+    global_env
+}
+
 //Lex tokens from input and parse them into a syntax tree
 //pub fn create_syntax_tree(input: &str) -> Vec<Statement> {
 pub fn create_syntax_tree(input: &str) -> Statement {
     ////Statement
     //Collect tokens
-    let tokens = lex(input);
+    let tokens: Vec<(usize, Token, usize)> = lex(input);
     //Parse tokens and return the syntax tree
     parse(tokens)
 }
@@ -87,19 +103,7 @@ pub fn run(input: &str, debug_mode: bool) {
 
     // This stack of scopes keeps track of variable names and their types
     let mut scope_stack: Vec<HashMap<String, VariableInfo>> = vec![HashMap::new()];
-
-    // Insert the global functions
-    scope_stack[0].insert(
-        "print".to_string(),
-        VariableInfo {
-            var_type: TypeConstruct::Function(
-                Box::new(TypeConstruct::Null),
-                vec![TypeConstruct::String],
-            ),
-            is_constant: false,
-        },
-    );
-    match type_check(&syntax_tree, &mut scope_stack) {
+    match type_check(&syntax_tree, &mut scope_stack, &global_env) {
         Ok(_) => {
             println!("Type checking passed!");
             interpret(syntax_tree);
