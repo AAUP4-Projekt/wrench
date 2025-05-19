@@ -1,5 +1,3 @@
-#![allow(clippy::unused_imports)]
-
 //use core::panic;
 
 use std::collections::HashMap;

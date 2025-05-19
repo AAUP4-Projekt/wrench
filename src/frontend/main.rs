@@ -1,16 +1,12 @@
-use std::collections::HashMap;
+
 
 use crate::backend::evaluate::interpret;
 
-use super::ast::{Statement, TypeConstruct, VariableInfo};
+use super::ast::{Statement};
 use lalrpop_util::{ParseError, lalrpop_mod};
 use logos::Logos;
 
-use crate::frontend::ast::make_compound;
-use pretty_assertions::assert_eq;
-
 use super::lexer::Token;
-use super::typecheck::type_check;
 
 lalrpop_mod!(#[allow(clippy::all)] pub grammar);
 

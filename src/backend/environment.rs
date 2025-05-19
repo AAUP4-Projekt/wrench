@@ -42,7 +42,7 @@ impl WrenchFunction {
     }
 }
 
-pub fn env_to_closure(env: &Vec<Vec<EnvironmentCell>>) -> Vec<WrenchFunction> {
+pub fn env_to_closure(env: &[Vec<EnvironmentCell>]) -> Vec<WrenchFunction> {
     let mut closure = Vec::new();
     for scope in env.iter() {
         for declaration in scope.iter() {
@@ -82,7 +82,7 @@ pub enum EnvironmentCell {
 }
 
 pub fn env_get_optional<'a>(
-    env: &'a mut Vec<Vec<EnvironmentCell>>,
+    env: &'a mut [Vec<EnvironmentCell>],
     name: &str,
 ) -> Option<&'a mut EnvironmentCell> {
     for scope in env.iter_mut().rev() {
