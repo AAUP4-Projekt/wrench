@@ -171,7 +171,7 @@ fn init_pipe(
 pub fn evaluate_pipes(
     expr: Box<Expr>,
     function_name: String,
-    args: Vec<Box<Expr>>,
+    args: Vec<Expr>,
     env: &mut Vec<Vec<EnvironmentCell>>,
 ) -> ExpressionValue {
     let (pipes, initial_expression) = pipe_rollout(expr.clone(), function_name, args, env);
@@ -303,12 +303,12 @@ fn pipe_middle_map(
 fn pipe_rollout(
     expr: Box<Expr>,
     function_name: String,
-    args: Vec<Box<Expr>>,
+    args: Vec<Expr>,
     env: &mut Vec<Vec<EnvironmentCell>>,
 ) -> (Vec<SimplePipe>, Box<Expr>) {
     let evaluated_args = args
         .iter()
-        .map(|arg| expression_value_to_pipe_value(evaluate_expression(*arg.clone(), env)))
+        .map(|arg| expression_value_to_pipe_value(evaluate_expression(arg.clone(), env)))
         .collect::<Vec<PipeValue>>();
 
     let function = match function_name.as_str() {
@@ -329,13 +329,13 @@ fn pipe_rollout(
 
     // Collect through recursion
     if let Expr::Pipe(e, f, a) = *expr {
-        let (mut rest_pipes, initial_expression) = pipe_rollout(e, f, a, env);
+        let (mut rest_pipes, initial_expression) =
+            pipe_rollout(e, f, a.into_iter().map(|b| *b).collect(), env);
         rest_pipes.push(pipe);
         (rest_pipes, initial_expression)
     } else {
         //Base case
-        let mut pipes = Vec::new();
-        pipes.push(pipe);
+        let pipes = vec![pipe];
 
         (pipes, expr.clone())
     }

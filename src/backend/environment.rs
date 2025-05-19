@@ -105,7 +105,7 @@ pub fn env_new() -> Vec<Vec<EnvironmentCell>> {
     Vec::new()
 }
 
-pub fn env_get(env: &Vec<Vec<EnvironmentCell>>, name: &str) -> EnvironmentCell {
+pub fn env_get(env: &[Vec<EnvironmentCell>], name: &str) -> EnvironmentCell {
     for scope in env.iter().rev() {
         for declaration in scope.iter() {
             match declaration {
@@ -125,7 +125,7 @@ pub fn env_get(env: &Vec<Vec<EnvironmentCell>>, name: &str) -> EnvironmentCell {
     );
 }
 
-pub fn env_add(env: &mut Vec<Vec<EnvironmentCell>>, declaration: EnvironmentCell) {
+pub fn env_add(env: &mut [Vec<EnvironmentCell>], declaration: EnvironmentCell) {
     let name = match &declaration {
         EnvironmentCell::Variable(var_name, _) => var_name,
         EnvironmentCell::Function(function) => function.name.as_str(),
@@ -141,7 +141,7 @@ pub fn env_add(env: &mut Vec<Vec<EnvironmentCell>>, declaration: EnvironmentCell
     env.last_mut().unwrap().push(declaration);
 }
 
-pub fn env_update(env: &mut Vec<Vec<EnvironmentCell>>, name: &str, expression: ExpressionValue) {
+pub fn env_update(env: &mut [Vec<EnvironmentCell>], name: &str, expression: ExpressionValue) {
     if let Some(existing_declaration) = env_get_optional(env, name) {
         match existing_declaration {
             EnvironmentCell::Variable(_, var_expr) => {

@@ -1,8 +1,6 @@
-
-
 use crate::backend::evaluate::interpret;
 
-use super::ast::{Statement};
+use super::ast::Statement;
 use lalrpop_util::{ParseError, lalrpop_mod};
 use logos::Logos;
 

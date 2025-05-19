@@ -4,6 +4,9 @@ for (
     in 
     import("programs/data/wine.csv", table(double residual_sugar, double density, double fixed_acidity, double pH, double chlorides)))
 {
-    s = s + r.residual_sugar;
+    var double valone = r.residual_sugar + r.density;
+    var double valtwo = r.fixed_acidity * r.pH;
+    var double valthree = r.chlorides / (r.residual_sugar + 0.000001);
+    s = s + valone + valtwo + valthree;
 }
 print(s);

@@ -18,15 +18,12 @@ use super::{
 pub fn interpret(input: Statement) {
     let mut env = env_new();
     env_expand_scope(&mut env);
-    evaluate_statement(Box::new(input), &mut env);
+    evaluate_statement(input, &mut env);
 }
 
 //Evaluate single statement
-fn evaluate_statement(
-    statement: Box<Statement>,
-    env: &mut Vec<Vec<EnvironmentCell>>,
-) -> StatementValue {
-    match *statement {
+fn evaluate_statement(statement: Statement, env: &mut Vec<Vec<EnvironmentCell>>) -> StatementValue {
+    match statement {
         Statement::Declaration(declaration) => {
             evaluate_declaration(declaration, env);
             StatementValue::None
@@ -41,21 +38,17 @@ fn evaluate_statement(
             StatementValue::None
         }
         Statement::Compound(s1, s2) => {
-            let s1v = evaluate_statement(s1, env);
+            let s1v = evaluate_statement(*s1, env);
 
             if let StatementValue::Return(_) = s1v {
                 return s1v;
             }
 
-            let s2v: StatementValue = evaluate_statement(s2, env);
+            let s2v: StatementValue = evaluate_statement(*s2, env);
 
             match s2v {
-                StatementValue::Return(_) => {
-                    s2v
-                }
-                StatementValue::None => {
-                    StatementValue::None
-                }
+                StatementValue::Return(_) => s2v,
+                StatementValue::None => StatementValue::None,
             }
         }
         Statement::Skip => StatementValue::None,
@@ -67,12 +60,8 @@ fn evaluate_statement(
         Statement::If(e1, s1, s2) => {
             let condition = evaluate_expression(*e1, env);
             match condition {
-                ExpressionValue::Bool(true) => {
-                    evaluate_statement(s1, env)
-                }
-                ExpressionValue::Bool(false) => {
-                    evaluate_statement(s2, env)
-                }
+                ExpressionValue::Bool(true) => evaluate_statement(*s1, env),
+                ExpressionValue::Bool(false) => evaluate_statement(*s2, env),
                 _ => {
                     panic!("Interpretation error: Condition is not a boolean")
                 }
@@ -91,7 +80,7 @@ fn evaluate_statement(
                             env,
                             EnvironmentCell::Variable(n.clone(), ExpressionValue::Row(row.clone())),
                         );
-                        let statement_value = evaluate_statement(body.clone(), env);
+                        let statement_value = evaluate_statement(*body.clone(), env);
                         match statement_value {
                             StatementValue::Return(value) => {
                                 env_shrink_scope(env);
@@ -107,7 +96,7 @@ fn evaluate_statement(
                     for element in array {
                         env_expand_scope(env);
                         env_add(env, EnvironmentCell::Variable(n.clone(), element));
-                        let statement_value = evaluate_statement(body.clone(), env);
+                        let statement_value = evaluate_statement(*body.clone(), env);
                         match statement_value {
                             StatementValue::Return(value) => {
                                 env_shrink_scope(env);
@@ -131,7 +120,7 @@ fn evaluate_statement(
                 env_expand_scope(env);
                 match condition {
                     ExpressionValue::Bool(true) => {
-                        let statement_value = evaluate_statement(body.clone(), env);
+                        let statement_value = evaluate_statement(*body.clone(), env);
                         match statement_value {
                             StatementValue::Return(value) => {
                                 env_shrink_scope(env);
@@ -166,6 +155,7 @@ fn evaluate_declaration(declaration: Declaration, env: &mut Vec<Vec<EnvironmentC
             env_add(env, EnvironmentCell::Variable(var_name, evaluated_value));
         }
         Declaration::Function(func_type, func_name, parameters, body) => {
+            let closure = env_to_closure(&env.clone());
             env_add(
                 env,
                 EnvironmentCell::Function(WrenchFunction::new(
@@ -173,7 +163,7 @@ fn evaluate_declaration(declaration: Declaration, env: &mut Vec<Vec<EnvironmentC
                     func_name,
                     parameters,
                     Box::new(*body),
-                    env_to_closure(env),
+                    closure,
                 )),
             );
         }
@@ -262,8 +252,8 @@ pub fn evaluate_expression(
             ExpressionValue::Table(Rc::new(RefCell::new(Table::new(structure))))
         }
         Expr::Pipe(expression, function_name, args) => {
+            let args: Vec<Expr> = args.into_iter().map(|boxed| *boxed).collect();
             evaluate_pipes(expression, function_name, args, env)
-            //ExpressionValue::Null
         }
         Expr::Not(expr) => {
             let evaluated_value = evaluate_expression(*expr, env);
@@ -326,7 +316,7 @@ pub fn evaluate_expression(
 pub fn evaluate_function_call(
     name: String,
     args: Vec<ExpressionValue>,
-    env: &Vec<Vec<EnvironmentCell>>,
+    env: &[Vec<EnvironmentCell>],
 ) -> ExpressionValue {
     match name.as_str() {
         "print" => wrench_print(args),
@@ -349,7 +339,7 @@ pub fn evaluate_function_call(
                 );
 
                 let statement_value =
-                    evaluate_statement(wrench_function.body.clone(), &mut fun_env);
+                    evaluate_statement(*wrench_function.body.clone(), &mut fun_env);
                 match statement_value {
                     StatementValue::Return(value) => value,
                     StatementValue::None => ExpressionValue::Null,
@@ -378,7 +368,7 @@ pub fn evaluate_custom_function_call(
     }
     env_add(&mut fun_env, EnvironmentCell::Function(function.clone()));
 
-    let statement_value = evaluate_statement(function.body.clone(), &mut fun_env);
+    let statement_value = evaluate_statement(*function.body.clone(), &mut fun_env);
     match statement_value {
         StatementValue::Return(value) => value,
         StatementValue::None => ExpressionValue::Null,
