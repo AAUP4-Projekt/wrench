@@ -1,6 +1,11 @@
+use std::collections::HashMap;
+
 use crate::backend::evaluate::interpret;
 
-use super::ast::Statement;
+use super::{
+    ast::{Statement, TypeConstruct, VariableInfo},
+    typecheck::type_check,
+};
 use lalrpop_util::{ParseError, lalrpop_mod};
 use logos::Logos;
 
@@ -97,9 +102,8 @@ pub fn run(input: &str, debug_mode: bool) {
         println!("Evaluating:");
     }
 
-    interpret(syntax_tree);
-
-    /*
+    // Create a global environment for functions
+    let global_env: HashMap<String, VariableInfo> = create_global_environment();
 
     // This stack of scopes keeps track of variable names and their types
     let mut scope_stack: Vec<HashMap<String, VariableInfo>> = vec![HashMap::new()];
@@ -112,7 +116,6 @@ pub fn run(input: &str, debug_mode: bool) {
             eprintln!("Type checking failed: {}", e);
         }
     }
-    */
 }
 
 /*
