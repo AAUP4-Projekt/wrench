@@ -282,13 +282,17 @@ mod tests {
 
     #[test]
     fn test_identifier_with_operator() {
-        let mut lexer = Token::lexer("indent*ifier");
-        assert_eq!(lexer.next(), Some(Ok(Token::Identifier("ident".to_string()))));
+        let mut lexer = Token::lexer("ident*ifier");
+        assert_eq!(
+            lexer.next(),
+            Some(Ok(Token::Identifier("ident".to_string())))
+        );
         assert_eq!(lexer.next(), Some(Ok(Token::Star)));
-        assert_eq!(lexer.next(), Some(Ok(Token::Identifier("ifier".to_string()))));
+        assert_eq!(
+            lexer.next(),
+            Some(Ok(Token::Identifier("ifier".to_string())))
+        );
     }
-
-
     #[test]
     fn invalid_input() {
         let mut lexer = Token::lexer("@ £ §");

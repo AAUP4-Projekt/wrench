@@ -1,0 +1,2 @@
+async_import("programs/data/wine.csv", table(double residual_sugar, double density, double fixed_acidity, double pH, double chlorides))
+    pipe print();

@@ -1,0 +1,44 @@
+fn row(double valone, double fixed_acidity, double pH, double chlorides, double residual_sugar) compute_valone(row(double residual_sugar, double density, double fixed_acidity, double pH, double chlorides) r) {
+    return row(
+        double valone = r.residual_sugar + r.density,
+        double fixed_acidity = r.fixed_acidity,
+        double pH = r.pH,
+        double chlorides = r.chlorides,
+        double residual_sugar = r.residual_sugar
+    );
+};
+
+fn row(double valone, double valtwo, double chlorides, double residual_sugar) compute_valtwo(row(double valone, double fixed_acidity, double pH, double chlorides, double residual_sugar) r) {
+    return row(
+        double valone = r.valone,
+        double valtwo = r.fixed_acidity * r.pH,
+        double chlorides = r.chlorides,
+        double residual_sugar = r.residual_sugar
+    );
+};
+
+fn row(double valone, double valtwo, double valthree) compute_valthree(row(double valone, double valtwo, double chlorides, double residual_sugar) r) {
+    return row(
+        double valone = r.valone,
+        double valtwo = r.valtwo,
+        double valthree = r.chlorides / (r.residual_sugar + 0.000001)
+    );
+};
+
+fn table(double total) reduce_sum(table(double valone, double valtwo, double valthree) t) {
+    var double sum = 0.0;
+    for (row(double valone, double valtwo, double valthree) r in t) {
+        sum = sum + r.valone + r.valtwo + r.valthree;
+    }
+    var table(double total) result = table();
+    var row(double total) rowTotal = row(double total = sum);
+    table_add_row(result, rowTotal);
+    return result;
+};
+
+async_import("programs/data/wine.csv", table(double residual_sugar, double density, double fixed_acidity, double pH, double chlorides))
+    pipe compute_valone()
+    pipe compute_valtwo()
+    pipe compute_valthree()
+    pipe reduce_sum()
+    pipe print();

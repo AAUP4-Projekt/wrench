@@ -1,16 +1,10 @@
-use std::collections::HashMap;
-
 use crate::backend::evaluate::interpret;
 
-use super::ast::{Statement, TypeConstruct, VariableInfo};
+use super::ast::Statement;
 use lalrpop_util::{ParseError, lalrpop_mod};
 use logos::Logos;
 
-use crate::frontend::ast::make_compound;
-use pretty_assertions::assert_eq;
-
 use super::lexer::Token;
-use super::typecheck::type_check;
 
 lalrpop_mod!(#[allow(clippy::all)] pub grammar);
 
@@ -89,7 +83,7 @@ pub fn run(input: &str, debug_mode: bool) {
 
     interpret(syntax_tree);
 
-    /* 
+    /*
 
     // This stack of scopes keeps track of variable names and their types
     let mut scope_stack: Vec<HashMap<String, VariableInfo>> = vec![HashMap::new()];
@@ -198,6 +192,106 @@ mod tests {
 
         // Assert
         assert_eq!(syntax_tree, expected_syntax_tree);
+    }
+
+    #[test] //testing in isolation
+    fn test_addition_ast() {
+        let expr = Expr::Operation(
+            Box::new(Expr::Number(2)),
+            Operator::Addition,
+            Box::new(Expr::Number(2)),
+        );
+        assert_eq!(
+            expr,
+            Expr::Operation(
+                Box::new(Expr::Number(2)),
+                Operator::Addition,
+                Box::new(Expr::Number(2)),
+            )
+        )
+    }
+
+    #[test]
+    fn test_composition_statements() {
+        let statements = vec![
+            Statement::Expr(Box::new(Expr::Bool(true))),
+            Statement::Expr(Box::new(Expr::Number(32))),
+        ];
+        let composition = make_compound(statements);
+
+        let expected_ast = Box::new(Statement::Compound(
+            Box::new(Statement::Expr(Box::new(Expr::Bool(true)))),
+            Box::new(Statement::Compound(
+                Box::new(Statement::Expr(Box::new(Expr::Number(32)))),
+                Box::new(Statement::Skip),
+            )),
+        ));
+
+        assert_eq!(composition, expected_ast);
+    }
+
+    #[test]
+    fn test_logical_operators() {
+        let leftside = Box::new(Expr::Bool(true));
+        let rightside = Box::new(Expr::Bool(false));
+
+        let and_expr = ast_and(leftside.clone(), rightside.clone());
+
+        let expected_ast = Box::new(Expr::Not(Box::new(Expr::Operation(
+            Box::new(Expr::Not(leftside)),
+            Operator::Or,
+            Box::new(Expr::Not(rightside)),
+        ))));
+        assert_eq!(and_expr, expected_ast)
+    }
+
+    #[test]
+    fn test_parse_if_else() {
+        let expected_syntax_tree = Statement::Compound(
+            Box::new(Statement::If(
+                Box::new(Expr::Bool(true)),
+                Box::new(Statement::Compound(
+                    Box::new(Statement::VariableAssignment(
+                        "x".to_string(),
+                        Box::new(Expr::Number(1)),
+                    )),
+                    Box::new(Statement::Skip),
+                )),
+                Box::new(Statement::Compound(
+                    Box::new(Statement::VariableAssignment(
+                        "x".to_string(),
+                        Box::new(Expr::Number(0)),
+                    )),
+                    Box::new(Statement::Skip),
+                )),
+            )),
+            Box::new(Statement::Skip),
+        );
+
+        let actual_syntax_tree = create_syntax_tree("if (true) { x = 1; } else { x = 0; }");
+
+        assert_eq!(actual_syntax_tree, expected_syntax_tree);
+    }
+
+    #[test]
+    fn test_while_loop() {
+        let expected_ast = Statement::Compound(
+            Box::new(Statement::While(
+                Box::new(Expr::Bool(true)),
+                Box::new(Statement::Compound(
+                    Box::new(Statement::VariableAssignment(
+                        "x".to_string(),
+                        Box::new(Expr::Number(1)),
+                    )),
+                    Box::new(Statement::Skip),
+                )),
+            )),
+            Box::new(Statement::Skip),
+        );
+
+        let actual_ast = create_syntax_tree("while (true) { x = 1; }");
+
+        assert_eq!(actual_ast, expected_ast);
     }
 
     /*

@@ -7,6 +7,7 @@ use super::environment::ExpressionValue;
 #[derive(Debug, Clone)]
 pub enum TableCell {
     Int(i32),
+    Double(f64),
     String(String),
     Bool(bool),
 }
@@ -14,6 +15,7 @@ pub enum TableCell {
 #[derive(Debug, Clone)]
 pub enum TableCellType {
     Int,
+    Double,
     String,
     Bool,
 }
@@ -39,18 +41,20 @@ impl Row {
             if key == column_name {
                 return match value {
                     TableCell::Int(i) => ExpressionValue::Number(*i),
+                    TableCell::Double(d) => ExpressionValue::Double(*d),
                     TableCell::String(s) => ExpressionValue::String(s.clone()),
                     TableCell::Bool(b) => ExpressionValue::Bool(*b),
                 };
             }
         }
-        panic!("Column name not found in row");
+        panic!("Column name not found in row for {}", column_name);
     }
 
     pub fn print(&self) {
         for (key, value) in &self.data {
             match value {
                 TableCell::Int(i) => print!("{}: {}, ", key, i),
+                TableCell::Double(d) => print!("{}: {}, ", key, d),
                 TableCell::String(s) => print!("{}: {}, ", key, s),
                 TableCell::Bool(b) => print!("{}: {}, ", key, b),
             }
@@ -78,9 +82,7 @@ impl Table {
         &self.structure
     }
 
-    pub fn parameters_to_structure(
-        parameters: Vec<Parameter>,
-    ) -> HashMap<String, TableCellType> {
+    pub fn parameters_to_structure(parameters: Vec<Parameter>) -> HashMap<String, TableCellType> {
         let mut structure = HashMap::new();
         for param in parameters {
             match param {
@@ -94,8 +96,11 @@ impl Table {
                     TypeConstruct::String => {
                         structure.insert(name.clone(), TableCellType::String);
                     }
+                    TypeConstruct::Double => {
+                        structure.insert(name.clone(), TableCellType::Double);
+                    }
                     _ => {
-                        panic!("Unsupported type in table declaration")
+                        panic!("Unsupported type in table declaration for {}", name);
                     }
                 },
             }
@@ -108,5 +113,4 @@ impl Table {
             row.print();
         }
     }
-
 }
