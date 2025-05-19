@@ -73,7 +73,7 @@ fn create_global_environment() -> HashMap<String, VariableInfo> {
         VariableInfo {
             var_type: TypeConstruct::Function(
                 Box::new(TypeConstruct::Null),
-                vec![TypeConstruct::String],
+                vec![TypeConstruct::Any],
             ),
             is_constant: false,
         },
