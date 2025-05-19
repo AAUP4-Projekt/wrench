@@ -43,21 +43,18 @@ fn evaluate_statement(
         Statement::Compound(s1, s2) => {
             let s1v = evaluate_statement(s1, env);
 
-            match s1v {
-                StatementValue::Return(_) => {
-                    return s1v;
-                }
-                _ => {}
+            if let StatementValue::Return(_) = s1v {
+                return s1v;
             }
 
             let s2v: StatementValue = evaluate_statement(s2, env);
 
             match s2v {
                 StatementValue::Return(_) => {
-                    return s2v;
+                    s2v
                 }
                 StatementValue::None => {
-                    return StatementValue::None;
+                    StatementValue::None
                 }
             }
         }
@@ -65,16 +62,16 @@ fn evaluate_statement(
         Statement::Return(expression) => {
             let return_value = evaluate_expression(*expression, env);
             env_shrink_scope(env);
-            return StatementValue::Return(return_value);
+            StatementValue::Return(return_value)
         }
         Statement::If(e1, s1, s2) => {
             let condition = evaluate_expression(*e1, env);
             match condition {
                 ExpressionValue::Bool(true) => {
-                    return evaluate_statement(s1, env);
+                    evaluate_statement(s1, env)
                 }
                 ExpressionValue::Bool(false) => {
-                    return evaluate_statement(s2, env);
+                    evaluate_statement(s2, env)
                 }
                 _ => {
                     panic!("Interpretation error: Condition is not a boolean")
@@ -198,7 +195,7 @@ pub fn evaluate_expression(
             let right = evaluate_expression(*e2, env);
             evaluate_operation(left, op, right)
         }
-        Expr::Identifier(ref name) => match env_get(env, &name) {
+        Expr::Identifier(ref name) => match env_get(env, name) {
             EnvironmentCell::Variable(_, ref value) => value.clone(),
             EnvironmentCell::Function(..) => {
                 panic!("Interpretation error: Function identifier not allowed as expression")
@@ -313,7 +310,7 @@ pub fn evaluate_expression(
                         }
                     };
                     if int_index < array.len() {
-                        return array[int_index].clone();
+                        array[int_index].clone()
                     } else {
                         panic!("Interpretation error: Index out of bounds");
                     }

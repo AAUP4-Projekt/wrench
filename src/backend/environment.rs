@@ -46,11 +46,8 @@ pub fn env_to_closure(env: &[Vec<EnvironmentCell>]) -> Vec<WrenchFunction> {
     let mut closure = Vec::new();
     for scope in env.iter() {
         for declaration in scope.iter() {
-            match declaration {
-                EnvironmentCell::Function(function) => {
-                    closure.push(function.clone());
-                }
-                _ => {}
+            if let EnvironmentCell::Function(function) = declaration {
+                closure.push(function.clone());
             }
         }
     }

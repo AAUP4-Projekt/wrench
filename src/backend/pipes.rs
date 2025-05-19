@@ -26,7 +26,7 @@ impl SimplePipe {
         if let PipeFunction::Custom(f) = &self.function {
             let Parameter::Parameter(t, _) = f.parameters[0].clone();
             if let TypeConstruct::Table(table_type) = t {
-                return Table::parameters_to_structure(table_type);
+                Table::parameters_to_structure(table_type)
             } else {
                 panic!("Expected a table for the first parameter of the function");
             }
@@ -37,7 +37,7 @@ impl SimplePipe {
     fn get_return_structure(&self) -> HashMap<String, TableCellType> {
         if let PipeFunction::Custom(f) = &self.function {
             if let TypeConstruct::Table(table_type) = f.return_type.clone() {
-                return Table::parameters_to_structure(table_type);
+                Table::parameters_to_structure(table_type)
             } else if let TypeConstruct::Row(row_type) = f.return_type.clone() {
                 return Table::parameters_to_structure(row_type);
             } else {
@@ -131,7 +131,7 @@ fn init_pipe(
                     pipe_import(left_args.clone(), s);
                 }
             });
-            return (t, r);
+            (t, r)
         } else {
             let expr = evaluate_expression(*initial_expression, env);
             let (s, r): (mpsc::Sender<Row>, mpsc::Receiver<Row>) = mpsc::channel();
@@ -144,7 +144,7 @@ fn init_pipe(
                         pipe_init_table(table, s);
                     }
                 });
-                return (t, r);
+                (t, r)
             } else {
                 panic!("Table expected for the pipe");
             }
@@ -161,7 +161,7 @@ fn init_pipe(
                     pipe_init_table(table, s);
                 }
             });
-            return (t, r);
+            (t, r)
         } else {
             panic!("Table expected for the pipe");
         }
@@ -213,7 +213,7 @@ pub fn evaluate_pipes(
         t.join().unwrap();
     }
 
-    return ExpressionValue::Table(Rc::new(RefCell::new(table)));
+    ExpressionValue::Table(Rc::new(RefCell::new(table)))
 }
 
 fn pipe_middle_map(
@@ -226,7 +226,7 @@ fn pipe_middle_map(
             match pipe.clone().get_pipe_type() {
                 PipeType::Map => {
                     // Evaluate each row at a time
-                    return thread::spawn({
+                    thread::spawn({
                         move || {
                             for row in receiver {
                                 let result =
@@ -241,11 +241,11 @@ fn pipe_middle_map(
                                 }
                             }
                         }
-                    });
+                    })
                 }
                 PipeType::Filter => {
                     // Evaluate each row at a time
-                    return thread::spawn({
+                    thread::spawn({
                         move || {
                             for row in receiver {
                                 let result =
@@ -262,11 +262,11 @@ fn pipe_middle_map(
                                 }
                             }
                         }
-                    });
+                    })
                 }
                 PipeType::Reduce => {
                     // Evaluate each row at a time
-                    return thread::spawn({
+                    thread::spawn({
                         move || {
                             let mut table = Table::new(pipe.get_call_structure());
                             for row in receiver {
@@ -285,17 +285,17 @@ fn pipe_middle_map(
                                 }
                             }
                         }
-                    });
+                    })
                 }
             }
         }
         PipeFunction::Print => {
             // Evaluate each row at a time
-            return thread::spawn({
+            thread::spawn({
                 move || {
                     pipe_print(receiver);
                 }
-            });
+            })
         }
     }
 }
@@ -331,13 +331,13 @@ fn pipe_rollout(
     if let Expr::Pipe(e, f, a) = *expr {
         let (mut rest_pipes, initial_expression) = pipe_rollout(e, f, a, env);
         rest_pipes.push(pipe);
-        return (rest_pipes, initial_expression);
+        (rest_pipes, initial_expression)
     } else {
         //Base case
         let mut pipes = Vec::new();
         pipes.push(pipe);
 
-        return (pipes, expr.clone());
+        (pipes, expr.clone())
     }
 }
 
