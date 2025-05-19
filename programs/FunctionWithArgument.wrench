@@ -1,0 +1,9 @@
+fn int first(int x){
+    print(x);
+};
+
+fn int second(int x){
+    first(x);
+};
+
+second(5);

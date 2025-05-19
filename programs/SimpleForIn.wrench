@@ -1,0 +1,9 @@
+var table(string name, int id, bool in_stock) t = import("programs/data/stock.csv", table(string name, int id, bool in_stock));
+
+var int iteration = 0;
+
+for (row(string name, int id, bool in_stock) r in t){
+    print(iteration);
+    print(r.name);
+    iteration = iteration + 1;
+}

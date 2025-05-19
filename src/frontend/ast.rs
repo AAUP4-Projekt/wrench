@@ -2,8 +2,6 @@
 
 use std::fmt::Debug;
 
-use crate::backend::table::Table;
-
 #[derive(PartialEq, Debug)]
 pub struct TypedExpr {
     pub expr: Expr,               // Represents the expression itself

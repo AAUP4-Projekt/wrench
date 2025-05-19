@@ -1,0 +1,6 @@
+var int[] x = [1,2,3,4,5];
+print(x[2]);
+
+for(int i in x){
+    print(i);
+}

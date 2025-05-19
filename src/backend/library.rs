@@ -1,8 +1,6 @@
-#![allow(clippy::unused_imports)]
-
 //use core::panic;
 
-use std::{collections::HashMap, hash::Hash};
+use std::collections::HashMap;
 
 use csv::Reader;
 
@@ -16,14 +14,22 @@ pub fn wrench_print(args: Vec<ExpressionValue>) -> ExpressionValue {
     for arg in args {
         match arg {
             ExpressionValue::Number(num) => println!("{}", num),
+            ExpressionValue::Double(num) => println!("{}", num),
             ExpressionValue::String(s) => println!("{}", s),
             ExpressionValue::Bool(b) => println!("{}", b),
             ExpressionValue::Null => println!("Null"),
+            ExpressionValue::Row(row) => {
+                row.print();
+            }
             ExpressionValue::Table(table) => {
                 let table = table.borrow();
                 table.print();
             }
-            _ => println!("Unsupported expression type for print"),
+            ExpressionValue::Array(arr) => {
+                for item in arr {
+                    wrench_print(vec![item]);
+                }
+            }
         }
     }
     ExpressionValue::Null
@@ -44,7 +50,7 @@ pub fn wrench_import(args: Vec<ExpressionValue>) -> ExpressionValue {
         table.add_row(row);
     });
 
-    ExpressionValue::Null
+    args[1].clone()
 }
 
 pub fn import_csv<F>(name: String, structure: HashMap<String, TableCellType>, mut row_callback: F)
@@ -64,19 +70,23 @@ where
         match result {
             Ok(record) => {
                 //Parse csv record into a row
-                let mut row_data: HashMap<String, TableCell> = HashMap::new();
-                header_map.iter().for_each(|(name, index)| {
-                    let value = record.get(*index).unwrap_or("");
-                    let cell = match structure.get(*name) {
-                        Some(TableCellType::Int) => TableCell::Int(value.parse::<i32>().unwrap()),
-                        Some(TableCellType::String) => TableCell::String(value.to_string()),
-                        Some(TableCellType::Bool) => {
-                            TableCell::Bool(value.parse::<bool>().unwrap())
-                        }
-                        _ => panic!("Unsupported type in table structure"),
-                    };
-                    row_data.insert(name.to_string(), cell);
-                });
+                let mut row_data: Vec<(String, TableCell)> = Vec::new();
+                for (name, cell_type) in &structure {
+                    if let Some(index) = header_map.get(name.as_str()) {
+                        let value = record.get(*index).unwrap_or("");
+                        let cell = match cell_type {
+                            TableCellType::Int => TableCell::Int(value.parse::<i32>().unwrap()),
+                            TableCellType::String => TableCell::String(value.to_string()),
+                            TableCellType::Bool => TableCell::Bool(value.parse::<bool>().unwrap()),
+                            TableCellType::Double => {
+                                TableCell::Double(value.parse::<f64>().unwrap())
+                            }
+                        };
+                        row_data.push((name.clone(), cell));
+                    } else {
+                        panic!("CSV file is missing column '{}'", name);
+                    }
+                }
                 row_callback(Row::new(row_data));
             }
             Err(e) => panic!("Error reading record: {}", e),

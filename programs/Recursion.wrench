@@ -1,0 +1,8 @@
+fn null recursion(int x){
+    print(x);
+    if(x > 0){
+        recursion(x - 1);
+    }
+};
+
+recursion(5);

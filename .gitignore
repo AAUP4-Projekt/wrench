@@ -26,4 +26,6 @@ Cargo.lock
 /target
 
 .vs/
+
+# Data
 programs/data/wine.csv
