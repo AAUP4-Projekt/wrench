@@ -109,7 +109,6 @@ pub fn run(input: &str, debug_mode: bool) {
     let mut scope_stack: Vec<HashMap<String, VariableInfo>> = vec![HashMap::new()];
     match type_check(&syntax_tree, &mut scope_stack, &global_env) {
         Ok(_) => {
-            println!("Type checking passed!");
             interpret(syntax_tree);
         }
         Err(e) => {

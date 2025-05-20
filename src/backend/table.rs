@@ -2,7 +2,8 @@ use std::collections::HashMap;
 
 use crate::frontend::ast::{Parameter, TypeConstruct};
 
-use super::environment::ExpressionValue;
+use super::evaluate::ExpressionValue;
+
 
 /*
  * This file deals with creating and managing tables and rows

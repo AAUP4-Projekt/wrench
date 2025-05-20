@@ -3,8 +3,7 @@ use std::collections::HashMap;
 use csv::Reader;
 
 use super::{
-    environment::ExpressionValue,
-    table::{Row, TableCell, TableCellType},
+    evaluate::ExpressionValue, table::{Row, TableCell, TableCellType}
 };
 
 /*

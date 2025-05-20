@@ -1,10 +1,8 @@
 use core::panic;
 
 use crate::frontend::ast::{Parameter, Statement, TypeConstruct};
-use std::cell::RefCell;
-use std::rc::Rc;
 
-use super::table::{Row, Table};
+use super::{evaluate::ExpressionValue};
 
 /*
  * This file deals with creating and managing the runtime environment
@@ -59,26 +57,6 @@ pub fn env_to_closure(env: &[Vec<EnvironmentCell>]) -> Vec<WrenchFunction> {
         }
     }
     closure
-}
-
-// Represents the value of an evaluated expression in the Wrench language
-#[derive(Clone, Debug)]
-pub enum ExpressionValue {
-    Number(i32),
-    Double(f64),
-    String(String),
-    Bool(bool),
-    Table(Rc<RefCell<Table>>),
-    Row(Row),
-    Array(Vec<ExpressionValue>),
-    Null,
-}
-
-//Represents the value of a statement in the Wrench language. Either the statement returns something or nothing
-#[derive(Debug)]
-pub enum StatementValue {
-    None,
-    Return(ExpressionValue),
 }
 
 //Represents a cell in the environment. Only variables and functions can be defined and stored in the environment

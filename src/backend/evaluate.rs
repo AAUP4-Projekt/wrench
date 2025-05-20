@@ -7,13 +7,33 @@ use crate::frontend::ast::{
 
 use super::{
     environment::{
-        EnvironmentCell, ExpressionValue, StatementValue, WrenchFunction, env_add,
+        EnvironmentCell, WrenchFunction, env_add,
         env_expand_scope, env_get, env_new, env_shrink_scope, env_to_closure, env_update,
     },
     library::{wrench_import, wrench_print, wrench_table_add_row},
     pipes::evaluate_pipes,
     table::{Row, Table, TableCell, TableCellType},
 };
+
+// Represents the value of an evaluated expression in the Wrench language
+#[derive(Clone, Debug)]
+pub enum ExpressionValue {
+    Number(i32),
+    Double(f64),
+    String(String),
+    Bool(bool),
+    Table(Rc<RefCell<Table>>),
+    Row(Row),
+    Array(Vec<ExpressionValue>),
+    Null,
+}
+
+//Represents the value of a statement in the Wrench language. Either the statement returns something or nothing
+#[derive(Debug)]
+pub enum StatementValue {
+    None,
+    Return(ExpressionValue),
+}
 
 /*
  * This file deals with evaluating the AST
@@ -64,7 +84,6 @@ fn evaluate_statement(statement: Statement, env: &mut Vec<Vec<EnvironmentCell>>)
         //Matches return e
         Statement::Return(expression) => {
             let return_value = evaluate_expression(*expression, env);
-            env_shrink_scope(env);
             StatementValue::Return(return_value)
         }
         //Matches if (e) then {S1} else {S2}
