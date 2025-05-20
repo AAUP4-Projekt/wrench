@@ -6,6 +6,11 @@ use std::rc::Rc;
 
 use super::table::{Row, Table};
 
+/*
+ * This file deals with creating and managing the runtime environment
+ */
+
+// Represents a function in the Wrench language, with it's closure that represents the functions in the environment at the time of declaration
 #[derive(Clone)]
 pub struct WrenchFunction {
     pub return_type: TypeConstruct,
@@ -32,6 +37,7 @@ impl WrenchFunction {
         }
     }
 
+    //Convert closure to environment
     pub fn get_closure_as_env(&self) -> Vec<Vec<EnvironmentCell>> {
         let mut env = env_new();
         env_expand_scope(&mut env);
@@ -42,6 +48,7 @@ impl WrenchFunction {
     }
 }
 
+//Helper function to convert the environment to a closure
 pub fn env_to_closure(env: &[Vec<EnvironmentCell>]) -> Vec<WrenchFunction> {
     let mut closure = Vec::new();
     for scope in env.iter() {
@@ -54,6 +61,7 @@ pub fn env_to_closure(env: &[Vec<EnvironmentCell>]) -> Vec<WrenchFunction> {
     closure
 }
 
+// Represents the value of an evaluated expression in the Wrench language
 #[derive(Clone, Debug)]
 pub enum ExpressionValue {
     Number(i32),
@@ -66,18 +74,21 @@ pub enum ExpressionValue {
     Null,
 }
 
+//Represents the value of a statement in the Wrench language. Either the statement returns something or nothing
 #[derive(Debug)]
 pub enum StatementValue {
     None,
     Return(ExpressionValue),
 }
 
+//Represents a cell in the environment. Only variables and functions can be defined and stored in the environment
 #[derive(Clone)]
 pub enum EnvironmentCell {
     Variable(String, ExpressionValue),
     Function(WrenchFunction),
 }
 
+//Helper function to retrieve a referrence to an environment cell from an environment. Returns None if the cell is not found
 pub fn env_get_optional<'a>(
     env: &'a mut [Vec<EnvironmentCell>],
     name: &str,
@@ -101,10 +112,12 @@ pub fn env_get_optional<'a>(
     None
 }
 
+//Helper function to create a new environment
 pub fn env_new() -> Vec<Vec<EnvironmentCell>> {
     Vec::new()
 }
 
+//Helper function to retrieve a referrence to an environment cell from an environment. Panics if the cell is not found
 pub fn env_get(env: &[Vec<EnvironmentCell>], name: &str) -> EnvironmentCell {
     for scope in env.iter().rev() {
         for declaration in scope.iter() {
@@ -125,6 +138,7 @@ pub fn env_get(env: &[Vec<EnvironmentCell>], name: &str) -> EnvironmentCell {
     );
 }
 
+//Helper function to add a new environment cell to the environment. Panics if the cell is already declared
 pub fn env_add(env: &mut [Vec<EnvironmentCell>], declaration: EnvironmentCell) {
     let name = match &declaration {
         EnvironmentCell::Variable(var_name, _) => var_name,
@@ -141,6 +155,7 @@ pub fn env_add(env: &mut [Vec<EnvironmentCell>], declaration: EnvironmentCell) {
     env.last_mut().unwrap().push(declaration);
 }
 
+//Helper function to update an environment cell in the environment. Panics if the cell is not found
 pub fn env_update(env: &mut [Vec<EnvironmentCell>], name: &str, expression: ExpressionValue) {
     if let Some(existing_declaration) = env_get_optional(env, name) {
         match existing_declaration {

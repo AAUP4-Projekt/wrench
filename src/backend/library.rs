@@ -1,5 +1,3 @@
-//use core::panic;
-
 use std::collections::HashMap;
 
 use csv::Reader;
@@ -8,8 +6,12 @@ use super::{
     environment::ExpressionValue,
     table::{Row, TableCell, TableCellType},
 };
-//use csv::{Reader, StringRecord};
 
+/*
+ * This file contains the wrench library functions, and helper functions for those
+ */
+
+// Wrench function for printing it's actual parameters. Returns null
 pub fn wrench_print(args: Vec<ExpressionValue>) -> ExpressionValue {
     for arg in args {
         match arg {
@@ -35,6 +37,7 @@ pub fn wrench_print(args: Vec<ExpressionValue>) -> ExpressionValue {
     ExpressionValue::Null
 }
 
+// Wrench library function for importing a table from a CSV file. Called with a file name and a table which types and columns matches a csv file
 pub fn wrench_import(args: Vec<ExpressionValue>) -> ExpressionValue {
     let file_name = match &args[0] {
         ExpressionValue::String(s) => s.clone(),
@@ -53,6 +56,7 @@ pub fn wrench_import(args: Vec<ExpressionValue>) -> ExpressionValue {
     args[1].clone()
 }
 
+// Helper function to Itterate over a CSV file and call the callback function for each row
 pub fn import_csv<F>(name: String, structure: HashMap<String, TableCellType>, mut row_callback: F)
 where
     F: FnMut(Row),
@@ -94,6 +98,7 @@ where
     }
 }
 
+// Wrench library function for adding a row to a table. Called with a table and a row
 pub fn wrench_table_add_row(args: Vec<ExpressionValue>) -> ExpressionValue {
     let table = match &args[0] {
         ExpressionValue::Table(table) => table,

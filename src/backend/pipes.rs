@@ -15,6 +15,11 @@ use super::{
     table::{Row, Table, TableCellType},
 };
 
+/*
+ * This file deals with creating and managing pipes
+ */
+
+//Enum that represents a pipe and thereby a single thread
 #[derive(Clone)]
 struct SimplePipe {
     function: PipeFunction,
@@ -22,6 +27,7 @@ struct SimplePipe {
 }
 
 impl SimplePipe {
+    //Gets the table structure of how the pipe's function is called
     fn get_call_structure(&self) -> HashMap<String, TableCellType> {
         if let PipeFunction::Custom(f) = &self.function {
             let Parameter::Parameter(t, _) = f.parameters[0].clone();
@@ -34,6 +40,7 @@ impl SimplePipe {
             panic!("Expected a custom function for the pipe");
         }
     }
+    //Get the table structure of how the pipe's function returns
     fn get_return_structure(&self) -> HashMap<String, TableCellType> {
         if let PipeFunction::Custom(f) = &self.function {
             if let TypeConstruct::Table(table_type) = f.return_type.clone() {
@@ -47,6 +54,7 @@ impl SimplePipe {
             panic!("Expected a custom function for the pipe");
         }
     }
+    //Determine wheter the pipe is a map, filter or reduce
     fn get_pipe_type(&self) -> PipeType {
         if let PipeFunction::Custom(f) = &self.function {
             match f.return_type {
@@ -67,6 +75,7 @@ enum PipeType {
     Reduce,
 }
 
+//The value that can be passed between threads. Like expression value, tables are passed by value instead of reference
 #[derive(Clone, Debug)]
 pub enum PipeValue {
     Number(i32),
@@ -79,6 +88,7 @@ pub enum PipeValue {
     Null,
 }
 
+//The function that is called in the pipe. This can be a custom function or a print function
 #[derive(Clone)]
 enum PipeFunction {
     Print,
@@ -115,6 +125,101 @@ fn pipe_value_to_expression_value(expr: PipeValue) -> ExpressionValue {
     }
 }
 
+//Function that evaluates a pipe expression
+pub fn evaluate_pipes(
+    expr: Box<Expr>,
+    function_name: String,
+    args: Vec<Expr>,
+    env: &mut Vec<Vec<EnvironmentCell>>,
+) -> ExpressionValue {
+    let (pipes, initial_expression) = pipe_rollout(expr.clone(), function_name, args, env);
+
+    let (t1, mut rx) = init_pipe(initial_expression, env);
+    let mut middle_threads = Vec::new();
+
+    for pipe in pipes.iter() {
+        let (sn, rn) = mpsc::channel();
+        //let function_env = env_to_closure(&env);
+        let t = pipe_middle_map(pipe.clone(), rx, sn);
+        rx = rn;
+        middle_threads.push(t);
+    }
+
+    let last_pipe = pipes.last().unwrap();
+
+    let mut table;
+
+    match &last_pipe.function {
+        PipeFunction::Custom(_) => {
+            // Collect the response from the last pipe into table
+            table = Table::new(last_pipe.get_return_structure());
+            for row in rx.iter() {
+                table.add_row(row.clone());
+            }
+        }
+        PipeFunction::Print => {
+            table = Table::new(HashMap::new());
+            for row in rx.iter() {
+                table.add_row(row.clone());
+            }
+        }
+    }
+
+    // Make sure threads are finished
+    t1.join().unwrap();
+    for t in middle_threads {
+        t.join().unwrap();
+    }
+
+    ExpressionValue::Table(Rc::new(RefCell::new(table)))
+}
+
+//Takes a pipe that can contain multiple pipes and converts them to a vector and evaluates arguments
+//async_import(...) pipe x(...) pipe y(...) is converted to a vector of simple pipes and returned along with the initial expression "async_import(...)"
+//Initial expression can be async_import(...) or an expression that evaluates to a table
+fn pipe_rollout(
+    expr: Box<Expr>,
+    function_name: String,
+    args: Vec<Expr>,
+    env: &mut Vec<Vec<EnvironmentCell>>,
+) -> (Vec<SimplePipe>, Box<Expr>) {
+    let evaluated_args = args
+        .iter()
+        .map(|arg| expression_value_to_pipe_value(evaluate_expression(arg.clone(), env)))
+        .collect::<Vec<PipeValue>>();
+
+    let function = match function_name.as_str() {
+        "print" => PipeFunction::Print,
+        _ => {
+            if let EnvironmentCell::Function(f) = env_get(env, &function_name) {
+                PipeFunction::Custom(f)
+            } else {
+                panic!("Expected a function for the pipe");
+            }
+        }
+    };
+
+    let pipe = SimplePipe {
+        function: function.clone(),
+        args: evaluated_args,
+    };
+
+    // Collect through recursion
+    if let Expr::Pipe(e, f, a) = *expr {
+        let a_unboxed: Vec<Expr> = a.into_iter().map(|boxed| *boxed).collect();
+        let (mut rest_pipes, initial_expression) = pipe_rollout(e, f, a_unboxed, env);
+        rest_pipes.push(pipe);
+        (rest_pipes, initial_expression)
+    } else {
+        //Base case
+        let pipes = vec![pipe];
+
+        (pipes, expr.clone())
+    }
+}
+
+//Is responsible for evaluating the first expression of the pipe
+//In async_import(...) pipe x(...), async_import(...) is evaluated in a separate thread, and values are passed to the next pipe
 fn init_pipe(
     initial_expression: Box<Expr>,
     env: &mut Vec<Vec<EnvironmentCell>>,
@@ -167,55 +272,6 @@ fn init_pipe(
         }
     }
 }
-
-pub fn evaluate_pipes(
-    expr: Box<Expr>,
-    function_name: String,
-    args: Vec<Expr>,
-    env: &mut Vec<Vec<EnvironmentCell>>,
-) -> ExpressionValue {
-    let (pipes, initial_expression) = pipe_rollout(expr.clone(), function_name, args, env);
-
-    let (t1, mut rx) = init_pipe(initial_expression, env);
-    let mut middle_threads = Vec::new();
-
-    for pipe in pipes.iter() {
-        let (sn, rn) = mpsc::channel();
-        //let function_env = env_to_closure(&env);
-        let t = pipe_middle_map(pipe.clone(), rx, sn);
-        rx = rn;
-        middle_threads.push(t);
-    }
-
-    let last_pipe = pipes.last().unwrap();
-
-    let mut table;
-
-    match &last_pipe.function {
-        PipeFunction::Custom(_) => {
-            // Collect the response from the last pipe into table
-            table = Table::new(last_pipe.get_return_structure());
-            for row in rx.iter() {
-                table.add_row(row.clone());
-            }
-        }
-        PipeFunction::Print => {
-            table = Table::new(HashMap::new());
-            for row in rx.iter() {
-                table.add_row(row.clone());
-            }
-        }
-    }
-
-    // Make sure threads are finished
-    t1.join().unwrap();
-    for t in middle_threads {
-        t.join().unwrap();
-    }
-
-    ExpressionValue::Table(Rc::new(RefCell::new(table)))
-}
-
 fn pipe_middle_map(
     pipe: SimplePipe,
     receiver: mpsc::Receiver<Row>,
@@ -300,47 +356,6 @@ fn pipe_middle_map(
     }
 }
 
-fn pipe_rollout(
-    expr: Box<Expr>,
-    function_name: String,
-    args: Vec<Expr>,
-    env: &mut Vec<Vec<EnvironmentCell>>,
-) -> (Vec<SimplePipe>, Box<Expr>) {
-    let evaluated_args = args
-        .iter()
-        .map(|arg| expression_value_to_pipe_value(evaluate_expression(arg.clone(), env)))
-        .collect::<Vec<PipeValue>>();
-
-    let function = match function_name.as_str() {
-        "print" => PipeFunction::Print,
-        _ => {
-            if let EnvironmentCell::Function(f) = env_get(env, &function_name) {
-                PipeFunction::Custom(f)
-            } else {
-                panic!("Expected a function for the pipe");
-            }
-        }
-    };
-
-    let pipe = SimplePipe {
-        function: function.clone(),
-        args: evaluated_args,
-    };
-
-    // Collect through recursion
-    if let Expr::Pipe(e, f, a) = *expr {
-        let (mut rest_pipes, initial_expression) =
-            pipe_rollout(e, f, a.into_iter().map(|b| *b).collect(), env);
-        rest_pipes.push(pipe);
-        (rest_pipes, initial_expression)
-    } else {
-        //Base case
-        let pipes = vec![pipe];
-
-        (pipes, expr.clone())
-    }
-}
-
 //Imports a CSV file one row at a time and sends it to the next pipe
 fn pipe_import(args: Vec<PipeValue>, sender: mpsc::Sender<Row>) {
     let name = if let PipeValue::String(s) = args[0].clone() {
@@ -359,12 +374,14 @@ fn pipe_import(args: Vec<PipeValue>, sender: mpsc::Sender<Row>) {
     import_csv(name, structure, row_callback);
 }
 
+//Helper function which evaluates an entire pipe expression with posible multiple pipes to a table
 fn pipe_init_table(table: Table, sender: mpsc::Sender<Row>) {
     for row in table.iter() {
         sender.send(row.clone()).unwrap();
     }
 }
 
+//Wrench library function for printing in a pipe
 fn pipe_print(receiver: mpsc::Receiver<Row>) {
     // Evaluate each row at a time
     for row in receiver {
@@ -372,28 +389,7 @@ fn pipe_print(receiver: mpsc::Receiver<Row>) {
     }
 }
 
-/*
-fn pipe_middle(pipe: SimplePipe, function_env: &Vec<WrenchFunction>, receiver: mpsc::Receiver<PipeValue>, sender: mpsc::Sender<PipeValue>) {
-    let mut function_env = function_env;
-
-    // Evaluate each row at a time
-    for row in receiver {
-        let result = evaluate_fn_row_call(row, pipe.function_name.clone(), pipe.args.clone(), &mut function_env);
-        sender.send(result).unwrap();
-    }
-}
-*/
-/*
-fn pipe_end(pipe: SimplePipe, function_env: &Vec<WrenchFunction>, receiver: mpsc::Receiver<PipeValue>) {
-    let mut function_env = function_env;
-    // Evaluate each row at a time
-    for row in receiver {
-        let result = evaluate_fn_row_call(row, pipe.function_name.clone(), pipe.args.clone(), &mut function_env);
-        print!("{:?}", result);
-    }
-}
-*/
-
+//Evaluates a function call where row is inserted as the first argument followed by the rest of the arguments given
 fn evaluate_fn_row_call(row: Row, function: WrenchFunction, args: Vec<PipeValue>) -> PipeValue {
     let mut full_args = vec![PipeValue::Row(row)];
     full_args.extend(args);
@@ -405,6 +401,7 @@ fn evaluate_fn_row_call(row: Row, function: WrenchFunction, args: Vec<PipeValue>
     expression_value_to_pipe_value(result)
 }
 
+//Evaluates a function call where table is inserted as the first argument followed by the rest of the arguments given
 fn evaluate_fn_table_call(
     table: Table,
     function: WrenchFunction,

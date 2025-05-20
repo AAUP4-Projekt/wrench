@@ -15,28 +15,36 @@ use super::{
     table::{Row, Table, TableCell, TableCellType},
 };
 
+/*
+ * This file deals with evaluating the AST
+ */
+
 pub fn interpret(input: Statement) {
     let mut env = env_new();
     env_expand_scope(&mut env);
     evaluate_statement(input, &mut env);
 }
 
-//Evaluate single statement
+//Evaluate S in Stmt
 fn evaluate_statement(statement: Statement, env: &mut Vec<Vec<EnvironmentCell>>) -> StatementValue {
+    //Matches D
     match statement {
         Statement::Declaration(declaration) => {
             evaluate_declaration(declaration, env);
             StatementValue::None
         }
+        //Matches e
         Statement::Expr(expression) => {
             evaluate_expression(*expression, env);
             StatementValue::None
         }
+        //Matches x = e
         Statement::VariableAssignment(variable, expression) => {
             let evaluated_value = evaluate_expression(*expression, env);
             env_update(env, &variable, evaluated_value);
             StatementValue::None
         }
+        //Matches S1;S2
         Statement::Compound(s1, s2) => {
             let s1v = evaluate_statement(*s1, env);
 
@@ -51,12 +59,15 @@ fn evaluate_statement(statement: Statement, env: &mut Vec<Vec<EnvironmentCell>>)
                 StatementValue::None => StatementValue::None,
             }
         }
+        //Matches skip
         Statement::Skip => StatementValue::None,
+        //Matches return e
         Statement::Return(expression) => {
             let return_value = evaluate_expression(*expression, env);
             env_shrink_scope(env);
             StatementValue::Return(return_value)
         }
+        //Matches if (e) then {S1} else {S2}
         Statement::If(e1, s1, s2) => {
             let condition = evaluate_expression(*e1, env);
             match condition {
@@ -67,7 +78,7 @@ fn evaluate_statement(statement: Statement, env: &mut Vec<Vec<EnvironmentCell>>)
                 }
             }
         }
-
+        //Matches for (T x in e) {S}
         Statement::For(parameter, expression, body) => {
             let iterator = evaluate_expression(*expression, env);
             let Parameter::Parameter(_, n) = parameter;
@@ -113,7 +124,7 @@ fn evaluate_statement(statement: Statement, env: &mut Vec<Vec<EnvironmentCell>>)
                 }
             }
         }
-
+        //Matches while(e){S}
         Statement::While(e, body) => {
             loop {
                 let condition = evaluate_expression(*e.clone(), env);
@@ -144,16 +155,20 @@ fn evaluate_statement(statement: Statement, env: &mut Vec<Vec<EnvironmentCell>>)
     }
 }
 
+//Evaluate D in Decl
 fn evaluate_declaration(declaration: Declaration, env: &mut Vec<Vec<EnvironmentCell>>) {
     match declaration {
+        //Matches var T x = e
         Declaration::Variable(_, var_name, value) => {
             let evaluated_value = evaluate_expression(*value, env);
             env_add(env, EnvironmentCell::Variable(var_name, evaluated_value));
         }
+        //Matches const T x = e
         Declaration::Constant(_, var_name, value) => {
             let evaluated_value = evaluate_expression(*value, env);
             env_add(env, EnvironmentCell::Variable(var_name, evaluated_value));
         }
+        //Matches function T x (T x) {S}
         Declaration::Function(func_type, func_name, parameters, body) => {
             let closure = env_to_closure(&env.clone());
             env_add(
@@ -170,27 +185,37 @@ fn evaluate_declaration(declaration: Declaration, env: &mut Vec<Vec<EnvironmentC
     }
 }
 
+//Evaluate e in Expr
 pub fn evaluate_expression(
     expression: Expr,
     env: &mut Vec<Vec<EnvironmentCell>>,
 ) -> ExpressionValue {
     match expression {
+        //Matches null
         Expr::Null => ExpressionValue::Null,
+        //Matches n
         Expr::Number(n) => ExpressionValue::Number(n),
+        //Matches d
         Expr::Double(d) => ExpressionValue::Double(d),
+        //Matches b
         Expr::Bool(b) => ExpressionValue::Bool(b),
+        //Matches s
         Expr::StringLiteral(s) => ExpressionValue::String(s),
+        //Matches e1 o e2
         Expr::Operation(e1, op, e2) => {
             let left = evaluate_expression(*e1, env);
             let right = evaluate_expression(*e2, env);
             evaluate_operation(left, op, right)
         }
+
+        //Matches x
         Expr::Identifier(ref name) => match env_get(env, name) {
             EnvironmentCell::Variable(_, ref value) => value.clone(),
             EnvironmentCell::Function(..) => {
                 panic!("Interpretation error: Function identifier not allowed as expression")
             }
         },
+        //Matches x(e)
         Expr::FunctionCall(name, expressions) => {
             let mut args: Vec<ExpressionValue> = Vec::with_capacity(expressions.len());
             for expression in expressions {
@@ -198,6 +223,7 @@ pub fn evaluate_expression(
             }
             evaluate_function_call(name, args, env)
         }
+        //Matches row(T x = e)
         Expr::Row(column_assignment) => {
             let mut row: Vec<(String, TableCell)> = Vec::new();
             for assignment in column_assignment {
@@ -226,6 +252,7 @@ pub fn evaluate_expression(
             }
             ExpressionValue::Row(Row::new(row))
         }
+        //Matches table(T x)
         Expr::Table(params) => {
             let mut structure: HashMap<String, TableCellType> = HashMap::new();
             for param in params {
@@ -251,10 +278,12 @@ pub fn evaluate_expression(
             }
             ExpressionValue::Table(Rc::new(RefCell::new(Table::new(structure))))
         }
+        //Matches e1 pipe x(e2)
         Expr::Pipe(expression, function_name, args) => {
-            let args: Vec<Expr> = args.into_iter().map(|boxed| *boxed).collect();
+            let args: Vec<Expr> = args.into_iter().map(|b| *b).collect();
             evaluate_pipes(expression, function_name, args, env)
         }
+        //Matches !e
         Expr::Not(expr) => {
             let evaluated_value = evaluate_expression(*expr, env);
             match evaluated_value {
@@ -266,15 +295,12 @@ pub fn evaluate_expression(
                 }
             }
         }
+        //Matches e.x
         Expr::ColumnIndexing(expr, column) => {
             let evaluated_value = evaluate_expression(*expr, env);
             match evaluated_value {
                 ExpressionValue::Row(row) => row.get(&column),
-                /*
-                ExpressionValue::Table(table) => {
-                    table.borrow().get_column(&column)
-                }
-                */
+                ExpressionValue::Table(table) => table.borrow().get_column(&column),
                 _ => {
                     panic!(
                         "Interpretation error: Column indexing can only be applied to rows or tables"
@@ -282,6 +308,7 @@ pub fn evaluate_expression(
                 }
             }
         }
+        //Matches [e]
         Expr::Array(elements) => {
             let mut evaluated_elements: Vec<ExpressionValue> = Vec::new();
             for element in elements {
@@ -289,6 +316,7 @@ pub fn evaluate_expression(
             }
             ExpressionValue::Array(evaluated_elements)
         }
+        //Matches e1[e2]
         Expr::Indexing(expr, index) => {
             let evaluated_value = evaluate_expression(*expr, env);
             match evaluated_value {
@@ -313,6 +341,7 @@ pub fn evaluate_expression(
     }
 }
 
+//Evaluate o in Op
 pub fn evaluate_function_call(
     name: String,
     args: Vec<ExpressionValue>,
