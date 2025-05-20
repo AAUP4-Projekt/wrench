@@ -9,8 +9,8 @@ use std::{
 use crate::frontend::ast::{Expr, Parameter, TypeConstruct};
 
 use super::{
-    environment::{env_get, EnvironmentCell, WrenchFunction},
-    evaluate::{evaluate_custom_function_call, evaluate_expression, ExpressionValue},
+    environment::{EnvironmentCell, WrenchFunction, env_get},
+    evaluate::{ExpressionValue, evaluate_custom_function_call, evaluate_expression},
     library::{import_csv, wrench_print},
     table::{Row, Table, TableCellType},
 };

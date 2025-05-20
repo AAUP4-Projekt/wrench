@@ -2,7 +2,7 @@ use core::panic;
 
 use crate::frontend::ast::{Parameter, Statement, TypeConstruct};
 
-use super::{evaluate::ExpressionValue};
+use super::evaluate::ExpressionValue;
 
 /*
  * This file deals with creating and managing the runtime environment

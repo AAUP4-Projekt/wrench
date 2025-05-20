@@ -4,7 +4,6 @@ use crate::frontend::ast::{Parameter, TypeConstruct};
 
 use super::evaluate::ExpressionValue;
 
-
 /*
  * This file deals with creating and managing tables and rows
  */

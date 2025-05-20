@@ -7,8 +7,8 @@ use crate::frontend::ast::{
 
 use super::{
     environment::{
-        EnvironmentCell, WrenchFunction, env_add,
-        env_expand_scope, env_get, env_new, env_shrink_scope, env_to_closure, env_update,
+        EnvironmentCell, WrenchFunction, env_add, env_expand_scope, env_get, env_new,
+        env_shrink_scope, env_to_closure, env_update,
     },
     library::{wrench_import, wrench_print, wrench_table_add_row},
     pipes::evaluate_pipes,
