@@ -196,7 +196,7 @@ fn evaluate_declaration(declaration: Declaration, env: &mut Vec<Vec<EnvironmentC
                     func_type,
                     func_name,
                     parameters,
-                    Box::new(*body),
+                    body,
                     closure,
                 )),
             );
