@@ -47,8 +47,8 @@ pub fn interpret(input: Statement) {
 
 //Evaluate S in Stmt
 fn evaluate_statement(statement: Statement, env: &mut Vec<Vec<EnvironmentCell>>) -> StatementValue {
-    //Matches D
     match statement {
+        //Matches D
         Statement::Declaration(declaration) => {
             evaluate_declaration(declaration, env);
             StatementValue::None
