@@ -8,7 +8,7 @@ fn row(int new_id) double_id(row(string name, int id, bool in_stock) t){
 
 fn table(int sum) sum(table(int new_id) t){
     var int result = 0;
-    for(row(int sum) r in t){
+    for(row(int new_id) r in t){
         result = result + r.new_id;
     }
     var table(int sum) table_result = table(int sum);
