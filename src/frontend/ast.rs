@@ -2,8 +2,6 @@
 
 use std::fmt::Debug;
 
-use crate::backend::table::Table;
-
 #[derive(PartialEq, Debug)]
 pub struct TypedExpr {
     pub expr: Expr,               // Represents the expression itself
@@ -67,6 +65,7 @@ pub enum TypeConstruct {
     Function(Box<TypeConstruct>, Vec<TypeConstruct>), // Represents a function type with return type and parameter types
     Table(Vec<Parameter>),                            // Represents a table type with its columns
     Row(Vec<Parameter>),                              // Represents a row type with its columns
+    Any,                                              // Represents any type used for print
 }
 
 // Enum representing the different types of operations

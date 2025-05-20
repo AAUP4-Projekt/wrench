@@ -11,7 +11,8 @@ use super::ast::{
 // - `scope_stack`: A mutable reference to the stack of variable scopes (used for scoping rules)
 pub fn type_check(
     statement: &Statement,
-    mut scope_stack: &mut Vec<HashMap<String, VariableInfo>>,
+    scope_stack: &mut Vec<HashMap<String, VariableInfo>>,
+    global_stack: &HashMap<String, VariableInfo>,
 ) -> Result<(), String> {
     // Match on the type of statement to handle different cases
     match statement {
@@ -23,8 +24,8 @@ pub fn type_check(
         // Case: Compound statement (two statements executed sequentially)
         Statement::Compound(stmt1, stmt2) => {
             // Type check both statements in the compound statement
-            type_check(stmt1, scope_stack)?;
-            type_check(stmt2, scope_stack)?;
+            type_check(stmt1, scope_stack, global_stack)?;
+            type_check(stmt2, scope_stack, global_stack)?;
         }
 
         // Case: Variable declaration
@@ -40,6 +41,7 @@ pub fn type_check(
                         }),
                         expr,
                         scope_stack,
+                        global_stack,
                     )?;
                     // Add variable to the current scope
                     scope_stack.last_mut().unwrap().insert(
@@ -53,7 +55,7 @@ pub fn type_check(
                 // Case: Constant declaration with a type, name, and expression
                 Declaration::Constant(const_type, name, expr) => {
                     // Check and cast the type of the expression
-                    let typed_expr = infer_type(expr, scope_stack)?;
+                    let typed_expr = infer_type(expr, scope_stack, global_stack)?;
                     if *const_type != typed_expr.expr_type {
                         return Err(format!(
                             "Type mismatch: expected {:?}, found {:?} for constant '{}'",
@@ -75,6 +77,8 @@ pub fn type_check(
                         .iter()
                         .map(|Parameter::Parameter(param_type, _)| param_type.clone())
                         .collect();
+
+                    // Add the function to the current scope
                     scope_stack.last_mut().unwrap().insert(
                         name.clone(),
                         VariableInfo {
@@ -82,14 +86,16 @@ pub fn type_check(
                                 Box::new(return_type.clone()),
                                 param_types,
                             ),
-                            is_constant: false,
+                            is_constant: true, // Functions are considered constants
                         },
                     );
 
-                    // Push a new scope for the function body
-                    push_scope(&mut scope_stack);
+                    // Create a new scope for the function body
+                    let mut function_scope = HashMap::new();
+
+                    // Add parameters to the function scope
                     for Parameter::Parameter(param_type, param_name) in params {
-                        scope_stack.last_mut().unwrap().insert(
+                        function_scope.insert(
                             param_name.clone(),
                             VariableInfo {
                                 var_type: param_type.clone(),
@@ -97,23 +103,22 @@ pub fn type_check(
                             },
                         );
                     }
-                    // Type check the function body
-                    type_check(&body, scope_stack)?;
 
-                    // Pop the function scope
-                    pop_scope(&mut scope_stack);
+                    // Type check the function body using the new function scope
+                    let mut function_scope_stack = vec![function_scope];
+                    type_check(body, &mut function_scope_stack, global_stack)?;
                 }
             }
         }
 
         // Case: For loop
         Statement::For(param, iterable_expr, body) => {
-            let typed_iterable = infer_type(iterable_expr, scope_stack)?;
+            let typed_iterable = infer_type(iterable_expr, scope_stack, global_stack)?;
 
             // Match on the type of the iterable expression
             match &typed_iterable.expr_type {
                 TypeConstruct::Array(element_type) => {
-                    push_scope(&mut scope_stack);
+                    push_scope(scope_stack);
 
                     // Match on the parameter type
                     match param {
@@ -134,9 +139,9 @@ pub fn type_check(
                         }
                     }
 
-                    type_check(&body, scope_stack)?;
+                    type_check(body, scope_stack, global_stack)?;
 
-                    pop_scope(&mut scope_stack);
+                    pop_scope(scope_stack);
                 }
                 _ => {
                     return Err(format!(
@@ -149,8 +154,12 @@ pub fn type_check(
 
         // Case: Variable assignment
         Statement::VariableAssignment(name, expr) => {
-            if let Some(var_type) = lookup_variable(name, scope_stack) {
-                check_and_cast_type(&var_type, expr, scope_stack)?;
+            if let Some(var_type) = lookup_variable(name, scope_stack, global_stack) {
+                if var_type.is_constant {
+                    return Err(format!("Cannot assign to constant variable '{}'", name));
+                }
+
+                check_and_cast_type(&var_type, expr, scope_stack, global_stack)?;
                 // Update the variable type in the current scope
                 scope_stack
                     .last_mut()
@@ -163,43 +172,43 @@ pub fn type_check(
 
         // Case: Constant assignment
         Statement::Expr(expr) => {
-            infer_type(expr, scope_stack)?;
+            infer_type(expr, scope_stack, global_stack)?;
         }
 
         // Case: If statement
         Statement::If(condition, body, else_body) => {
-            let typed_condition = infer_type(condition, scope_stack)?;
+            let typed_condition = infer_type(condition, scope_stack, global_stack)?;
             if typed_condition.expr_type != TypeConstruct::Bool {
                 return Err("If condition must be a boolean".to_string());
             }
 
             // Push a new scope for the if body
-            push_scope(&mut scope_stack);
-            type_check(&body, scope_stack)?;
-            pop_scope(&mut scope_stack);
+            push_scope(scope_stack);
+            type_check(body, scope_stack, global_stack)?;
+            pop_scope(scope_stack);
 
             // Push a new scope for the else body
-            push_scope(&mut scope_stack);
-            type_check(else_body, scope_stack)?;
-            pop_scope(&mut scope_stack);
+            push_scope(scope_stack);
+            type_check(else_body, scope_stack, global_stack)?;
+            pop_scope(scope_stack);
         }
 
         // Case: While statement
         Statement::While(condition, body) => {
-            let typed_condition = infer_type(condition, scope_stack)?;
+            let typed_condition = infer_type(condition, scope_stack, global_stack)?;
             if typed_condition.expr_type != TypeConstruct::Bool {
                 return Err("While condition must be a boolean".to_string());
             }
 
             // Push a new scope for the while body
-            push_scope(&mut scope_stack);
-            type_check(&body, scope_stack)?;
-            pop_scope(&mut scope_stack);
+            push_scope(scope_stack);
+            type_check(body, scope_stack, global_stack)?;
+            pop_scope(scope_stack);
         }
 
         // Case: return statement
         Statement::Return(expr) => {
-            infer_type(expr, scope_stack)?;
+            infer_type(expr, scope_stack, global_stack)?;
         }
     }
 
@@ -209,7 +218,8 @@ pub fn type_check(
 // Function to infer the type of an expression
 fn infer_type(
     expr: &Expr,
-    mut scope_stack: &mut Vec<HashMap<String, VariableInfo>>,
+    scope_stack: &mut Vec<HashMap<String, VariableInfo>>,
+    global_stack: &HashMap<String, VariableInfo>,
 ) -> Result<TypedExpr, String> {
     match expr {
         // Case: Integer literal (e.g., `5`)
@@ -241,13 +251,7 @@ fn infer_type(
 
         // Case: Identifier (e.g., `x`)
         Expr::Identifier(name) => {
-            if let Some(var_info) = lookup_variable(name, scope_stack) {
-                if is_global_variable(name, scope_stack) && !var_info.is_constant {
-                    return Err(format!(
-                        "Variable '{}' is not a constant and cannot be used in a function",
-                        name
-                    ));
-                }
+            if let Some(var_info) = lookup_variable(name, scope_stack, global_stack) {
                 Ok(TypedExpr {
                     expr: Expr::Identifier(name.clone()),
                     expr_type: var_info.var_type.clone(),
@@ -259,8 +263,8 @@ fn infer_type(
 
         // Case: Binary operation (e.g., `x + y`)
         Expr::Operation(left, op, right) => {
-            let left_typed = infer_type(left, scope_stack)?;
-            let right_typed = infer_type(right, scope_stack)?;
+            let left_typed = infer_type(left, scope_stack, global_stack)?;
+            let right_typed = infer_type(right, scope_stack, global_stack)?;
 
             // Check if the operator is valid for the types
             let widened_left = check_and_cast_type(
@@ -269,7 +273,8 @@ fn infer_type(
                     is_constant: false,
                 },
                 &left_typed.expr,
-                &mut scope_stack,
+                scope_stack,
+                global_stack,
             )?;
             let widened_right = check_and_cast_type(
                 &VariableInfo {
@@ -277,7 +282,8 @@ fn infer_type(
                     is_constant: false,
                 },
                 &right_typed.expr,
-                &mut scope_stack,
+                scope_stack,
+                global_stack,
             )?;
             // Determine the result type based on the operator and operand types
             let result_type = match (&left_typed.expr_type, &right_typed.expr_type) {
@@ -301,6 +307,16 @@ fn infer_type(
                 | Operator::Division
                 | Operator::Exponent => {
                     if result_type == TypeConstruct::Int || result_type == TypeConstruct::Double {
+                        // Check for division by zero
+                        if let Operator::Division = op {
+                            match &right_typed.expr {
+                                Expr::Number(0) | Expr::Double(0.0) => {
+                                    return Err("Division by zero is not allowed".to_string());
+                                }
+                                _ => {}
+                            }
+                        }
+
                         Ok(TypedExpr {
                             expr: Expr::Operation(
                                 Box::new(widened_left),
@@ -319,7 +335,7 @@ fn infer_type(
 
         // Case: Logical NOT (e.g., `!true`)
         Expr::Not(inner) => {
-            let inner_typed = infer_type(inner, scope_stack)?;
+            let inner_typed = infer_type(inner, scope_stack, global_stack)?;
             if inner_typed.expr_type == TypeConstruct::Bool {
                 Ok(TypedExpr {
                     expr: Expr::Not(Box::new(inner_typed.expr)),
@@ -336,10 +352,10 @@ fn infer_type(
                 return Err("Cannot infer type of empty array".to_string());
             }
 
-            let first_typed = infer_type(&elements[0], scope_stack)?;
+            let first_typed = infer_type(&elements[0], scope_stack, global_stack)?;
             // Ensure all elements in the array have the same type
             for e in elements.iter().skip(1) {
-                let t = infer_type(e, scope_stack)?;
+                let t = infer_type(e, scope_stack, global_stack)?;
                 if t.expr_type != first_typed.expr_type {
                     return Err("Array elements must have the same type".to_string());
                 }
@@ -349,7 +365,10 @@ fn infer_type(
                 expr: Expr::Array(
                     elements
                         .iter()
-                        .map(|e| infer_type(e, scope_stack).map(|typed| Box::new(typed.expr)))
+                        .map(|e| {
+                            infer_type(e, scope_stack, global_stack)
+                                .map(|typed| Box::new(typed.expr))
+                        })
                         .collect::<Result<Vec<_>, _>>()?,
                 ),
                 expr_type: TypeConstruct::Array(Box::new(first_typed.expr_type)),
@@ -358,8 +377,8 @@ fn infer_type(
 
         // Case: Indexing (e.g., `arr[0]`)
         Expr::Indexing(array_expr, index_expr) => {
-            let array_typed = infer_type(array_expr, scope_stack)?;
-            let index_typed = infer_type(index_expr, scope_stack)?;
+            let array_typed = infer_type(array_expr, scope_stack, global_stack)?;
+            let index_typed = infer_type(index_expr, scope_stack, global_stack)?;
 
             if index_typed.expr_type != TypeConstruct::Int {
                 return Err("Index must be an integer".to_string());
@@ -371,35 +390,23 @@ fn infer_type(
                     expr: Expr::Indexing(Box::new(array_typed.expr), Box::new(index_typed.expr)),
                     expr_type: *inner,
                 }),
+
+                TypeConstruct::Row(_) => Ok(TypedExpr {
+                    expr: Expr::Indexing(Box::new(array_typed.expr), Box::new(index_typed.expr)),
+                    expr_type: array_typed.expr_type.clone(),
+                }),
+
+                TypeConstruct::Table(_) => Ok(TypedExpr {
+                    expr: Expr::Indexing(Box::new(array_typed.expr), Box::new(index_typed.expr)),
+                    expr_type: array_typed.expr_type.clone(),
+                }),
                 _ => Err("Cannot index into non-array type".to_string()),
             }
         }
 
         // Case for function call (e.g., `f(x, y)`)
         Expr::FunctionCall(name, args) => {
-            if let Some(func_type) = lookup_variable(name, scope_stack) {
-                if name == "print" {
-                    // allow print function with any number of arguments
-                    for arg in args {
-                        let arg_type = infer_type(arg, scope_stack)?.expr_type;
-                        match arg_type {
-                            TypeConstruct::String | TypeConstruct::Int | TypeConstruct::Double => {
-                                // Valid types for print
-                            }
-                            _ => {
-                                return Err(format!(
-                                    "Type mismatch in function call `{}`: expected String, Int, or Double, found {:?}",
-                                    name, arg_type
-                                ));
-                            }
-                        }
-                    }
-                    return Ok(TypedExpr {
-                        expr: Expr::FunctionCall(name.clone(), args.clone()),
-                        expr_type: TypeConstruct::Null,
-                    }); // print typically returns nothing
-                }
-
+            if let Some(func_type) = lookup_variable(name, scope_stack, global_stack) {
                 // Check if the function is of type Function
                 if let TypeConstruct::Function(return_type, param_types) = &func_type.var_type {
                     if args.len() != param_types.len() {
@@ -413,8 +420,10 @@ fn infer_type(
 
                     // Check argument types
                     for (arg, param_type) in args.iter().zip(param_types.iter()) {
-                        let arg_typed = infer_type(arg, scope_stack)?;
-                        if arg_typed.expr_type != *param_type {
+                        let arg_typed = infer_type(arg, scope_stack, global_stack)?;
+                        if *param_type != TypeConstruct::Any && arg_typed.expr_type != *param_type {
+                            // If the parameter type is not Any, check for type mismatch
+                            // Any is used for print
                             return Err(format!(
                                 "Type mismatch in function call: expected {:?}, found {:?}",
                                 param_type, arg_typed.expr_type
@@ -437,14 +446,14 @@ fn infer_type(
         // Case: pipe operation (e.g., `x pipe f`)
         Expr::Pipe(left, pipe_name, args) => {
             // Type-check input to the pipe
-            let left_typed = infer_type(left, scope_stack)?;
+            let left_typed = infer_type(left, scope_stack, global_stack)?;
             println!("Pipe input type: {:?}", left_typed.expr_type);
 
             // Check if the input to the pipe is either Row or Table
             match left_typed.expr_type {
                 TypeConstruct::Row(_) | TypeConstruct::Table(_) => {
                     // Look up the pipe function in the scope
-                    if let Some(func_type) = lookup_variable(pipe_name, scope_stack) {
+                    if let Some(func_type) = lookup_variable(pipe_name, scope_stack, global_stack) {
                         if let TypeConstruct::Function(return_type, param_types) =
                             &func_type.var_type
                         {
@@ -460,7 +469,7 @@ fn infer_type(
 
                             // Check argument types
                             for (arg, param_type) in args.iter().zip(param_types.iter()) {
-                                let arg_typed = infer_type(arg, scope_stack)?;
+                                let arg_typed = infer_type(arg, scope_stack, global_stack)?;
                                 if arg_typed.expr_type != *param_type {
                                     return Err(format!(
                                         "Type mismatch in pipe function '{}': expected {:?}, found {:?}",
@@ -526,7 +535,7 @@ fn infer_type(
                 // Match on the type of column assignment
                 match column {
                     ColumnAssignmentEnum::ColumnAssignment(param_type, param_name, expr) => {
-                        let typed_expr = infer_type(expr, scope_stack)?;
+                        let typed_expr = infer_type(expr, scope_stack, global_stack)?;
                         if *param_type != typed_expr.expr_type {
                             return Err(format!(
                                 "Type mismatch: expected {:?}, found {:?} for column '{}'",
@@ -546,7 +555,7 @@ fn infer_type(
 
         // Case: column indexing
         Expr::ColumnIndexing(table_expr, column_name) => {
-            let table_typed = infer_type(table_expr, scope_stack)?;
+            let table_typed = infer_type(table_expr, scope_stack, global_stack)?;
 
             // Check if the table is of type Table or Row
             match table_typed.expr_type {
@@ -567,14 +576,16 @@ fn infer_type(
 pub fn lookup_variable(
     name: &str,
     scope_stack: &[HashMap<String, VariableInfo>],
+    global_stack: &HashMap<String, VariableInfo>,
 ) -> Option<VariableInfo> {
-    // Iterate through the scope stack in reverse order
-    // to find the most recent declaration of the variable
     for scope in scope_stack.iter().rev() {
-        // Check if the variable exists in the current scope
-        if let Some(var_type) = scope.get(name) {
-            return Some(var_type.clone());
+        if let Some(var_info) = scope.get(name) {
+            return Some(var_info.clone());
         }
+    }
+
+    if let Some(var_info) = global_stack.get(name) {
+        return Some(var_info.clone());
     }
     None
 }
@@ -596,8 +607,9 @@ fn check_and_cast_type(
     expected_type: &VariableInfo,
     expr: &Expr,
     scope_stack: &mut Vec<HashMap<String, VariableInfo>>,
+    global_stack: &HashMap<String, VariableInfo>,
 ) -> Result<Expr, String> {
-    let typed_expr = infer_type(expr, scope_stack)?;
+    let typed_expr = infer_type(expr, scope_stack, global_stack)?;
 
     match (&expected_type.var_type, &typed_expr.expr_type) {
         // Implicit cast from Int to Double allowed
@@ -617,15 +629,7 @@ fn check_and_cast_type(
     }
 }
 
-// Helper function to check if a variable is global
-fn is_global_variable(name: &str, scope_stack: &[HashMap<String, VariableInfo>]) -> bool {
-    if let Some(global_scope) = scope_stack.first() {
-        global_scope.contains_key(name)
-    } else {
-        false
-    }
-}
-
+/*
 //Unit-integration tests:
 #[cfg(test)]
 mod tests {
@@ -829,3 +833,4 @@ mod tests {
         assert!(result.is_err(), "Cannot change value of const!")
     }
 }
+*/

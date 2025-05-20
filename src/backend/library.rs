@@ -1,5 +1,3 @@
-#![allow(clippy::unused_imports)]
-
 use std::collections::HashMap;
 
 use csv::Reader;

@@ -49,15 +49,12 @@ impl WrenchFunction {
 }
 
 //Helper function to convert the environment to a closure
-pub fn env_to_closure(env: &Vec<Vec<EnvironmentCell>>) -> Vec<WrenchFunction> {
+pub fn env_to_closure(env: &[Vec<EnvironmentCell>]) -> Vec<WrenchFunction> {
     let mut closure = Vec::new();
     for scope in env.iter() {
         for declaration in scope.iter() {
-            match declaration {
-                EnvironmentCell::Function(function) => {
-                    closure.push(function.clone());
-                }
-                _ => {}
+            if let EnvironmentCell::Function(function) = declaration {
+                closure.push(function.clone());
             }
         }
     }
@@ -93,7 +90,7 @@ pub enum EnvironmentCell {
 
 //Helper function to retrieve a referrence to an environment cell from an environment. Returns None if the cell is not found
 pub fn env_get_optional<'a>(
-    env: &'a mut Vec<Vec<EnvironmentCell>>,
+    env: &'a mut [Vec<EnvironmentCell>],
     name: &str,
 ) -> Option<&'a mut EnvironmentCell> {
     for scope in env.iter_mut().rev() {
@@ -121,10 +118,19 @@ pub fn env_new() -> Vec<Vec<EnvironmentCell>> {
 }
 
 //Helper function to retrieve a referrence to an environment cell from an environment. Panics if the cell is not found
-pub fn env_get(env: &Vec<Vec<EnvironmentCell>>, name: &str) -> EnvironmentCell {
-    let mut env_mut = env.clone();
-    if let Some(value) = env_get_optional(&mut env_mut, name) {
-        return value.clone();
+pub fn env_get(env: &[Vec<EnvironmentCell>], name: &str) -> EnvironmentCell {
+    for scope in env.iter().rev() {
+        for declaration in scope.iter() {
+            match declaration {
+                EnvironmentCell::Variable(var_name, value) if var_name == name => {
+                    return EnvironmentCell::Variable(var_name.clone(), value.clone());
+                }
+                EnvironmentCell::Function(function) if function.name == name => {
+                    return EnvironmentCell::Function(function.clone());
+                }
+                _ => {}
+            }
+        }
     }
     panic!(
         "Interpretation error. The identifier '{:?}' not found",
@@ -133,7 +139,7 @@ pub fn env_get(env: &Vec<Vec<EnvironmentCell>>, name: &str) -> EnvironmentCell {
 }
 
 //Helper function to add a new environment cell to the environment. Panics if the cell is already declared
-pub fn env_add(env: &mut Vec<Vec<EnvironmentCell>>, declaration: EnvironmentCell) {
+pub fn env_add(env: &mut [Vec<EnvironmentCell>], declaration: EnvironmentCell) {
     let name = match &declaration {
         EnvironmentCell::Variable(var_name, _) => var_name,
         EnvironmentCell::Function(function) => function.name.as_str(),
@@ -150,7 +156,7 @@ pub fn env_add(env: &mut Vec<Vec<EnvironmentCell>>, declaration: EnvironmentCell
 }
 
 //Helper function to update an environment cell in the environment. Panics if the cell is not found
-pub fn env_update(env: &mut Vec<Vec<EnvironmentCell>>, name: &str, expression: ExpressionValue) {
+pub fn env_update(env: &mut [Vec<EnvironmentCell>], name: &str, expression: ExpressionValue) {
     if let Some(existing_declaration) = env_get_optional(env, name) {
         match existing_declaration {
             EnvironmentCell::Variable(_, var_expr) => {
