@@ -360,7 +360,6 @@ pub fn evaluate_expression(
     }
 }
 
-//Evaluate o in Op
 pub fn evaluate_function_call(
     name: String,
     args: Vec<ExpressionValue>,
