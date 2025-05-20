@@ -5,7 +5,7 @@ use crate::frontend::ast::{Parameter, TypeConstruct};
 use super::environment::ExpressionValue;
 
 /*
- * This file deals with creating and managing tables and rows 
+ * This file deals with creating and managing tables and rows
  */
 
 #[derive(Debug, Clone)]

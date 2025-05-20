@@ -27,7 +27,7 @@ pub fn interpret(input: Statement) {
 
 //Evaluate S in Stmt
 fn evaluate_statement(statement: Statement, env: &mut Vec<Vec<EnvironmentCell>>) -> StatementValue {
-  //Matches D
+    //Matches D
     match statement {
         Statement::Declaration(declaration) => {
             evaluate_declaration(declaration, env);
@@ -280,7 +280,7 @@ pub fn evaluate_expression(
         }
         //Matches e1 pipe x(e2)
         Expr::Pipe(expression, function_name, args) => {
-            let args: Vec<Expr> = args.into_iter().map(|boxed| *boxed).collect();
+            let args: Vec<Expr> = args.into_iter().map(|b| *b).collect();
             evaluate_pipes(expression, function_name, args, env)
         }
         //Matches !e
@@ -501,70 +501,4 @@ fn evaluate_operation(
         "Interpretation error: Unsupported operation for {:?} {:?} {:?}",
         &left, &operator, &right,
     );
-}
-
-
-//Helper function to evaluate function calls
-pub fn evaluate_function_call(
-    name: String,
-    args: Vec<ExpressionValue>,
-    env: &Vec<Vec<EnvironmentCell>>,
-) -> ExpressionValue {
-    match name.as_str() {
-        //Try to match build in functions. Else try to match user defined functions
-        "print" => wrench_print(args),
-        "import" => wrench_import(args),
-        "table_add_row" => wrench_table_add_row(args),
-        _ => {
-            let function = env_get(env, &name);
-            if let EnvironmentCell::Function(wrench_function) = function {
-                let mut fun_env = wrench_function.get_closure_as_env();
-                for (param, arg) in wrench_function.parameters.iter().zip(args.into_iter()) {
-                    let Parameter::Parameter(_, param_name) = param;
-                    env_add(
-                        &mut fun_env,
-                        EnvironmentCell::Variable(param_name.clone(), arg),
-                    );
-                }
-                env_add(
-                    &mut fun_env,
-                    EnvironmentCell::Function(wrench_function.clone()),
-                );
-
-                let statement_value =
-                    evaluate_statement(wrench_function.body.clone(), &mut fun_env);
-                match statement_value {
-                    StatementValue::Return(value) => value,
-                    StatementValue::None => ExpressionValue::Null,
-                }
-            } else {
-                panic!(
-                    "Interpretation error: Identifier '{:?}' is not a function",
-                    name
-                );
-            }
-        }
-    }
-}
-
-//Evaluate calls of user defined function
-pub fn evaluate_custom_function_call(
-    function: &WrenchFunction,
-    args: Vec<ExpressionValue>,
-) -> ExpressionValue {
-    let mut fun_env = function.get_closure_as_env();
-    for (param, arg) in function.parameters.iter().zip(args.into_iter()) {
-        let Parameter::Parameter(_, param_name) = param;
-        env_add(
-            &mut fun_env,
-            EnvironmentCell::Variable(param_name.clone(), arg),
-        );
-    }
-    env_add(&mut fun_env, EnvironmentCell::Function(function.clone()));
-
-    let statement_value = evaluate_statement(function.body.clone(), &mut fun_env);
-    match statement_value {
-        StatementValue::Return(value) => value,
-        StatementValue::None => ExpressionValue::Null,
-    }
 }
