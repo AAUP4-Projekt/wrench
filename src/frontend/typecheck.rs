@@ -561,7 +561,11 @@ fn infer_type(
         Expr::Pipe(left, pipe_name, args) => {
             let left_typed = infer_type(left, scope_stack)?;
 
+            // Check is the left side is a pipe
             let is_left_pipe = matches!(**left, Expr::Pipe(_, _, _));
+
+            // If the left side is not a pipe, check if it is a type that can be piped
+            // The only type that can be piped is a table
             if !is_left_pipe && !matches!(left_typed.expr_type, TypeConstruct::Table(_)) {
                 return Err(format!(
                     "A pipeline must start with a Table, but got: {:?}",
@@ -569,6 +573,7 @@ fn infer_type(
                 ));
             }
 
+            // Check if the pipe function is defined
             if let Some(func_type) = lookup_variable(pipe_name, scope_stack) {
                 if let TypeConstruct::Function(return_type, param_types) = &func_type.var_type {
                     let effective_args: Vec<Expr> = if args.is_empty() && param_types.len() == 1 {
@@ -577,6 +582,9 @@ fn infer_type(
                         args.iter().map(|b| (*b.clone())).collect()
                     };
 
+                    // Check if the number of arguments matches
+                    // If the function is a pipe function, we need to check if the number of arguments matches
+                    // the number of parameters
                     if effective_args.len() != param_types.len() {
                         return Err(format!(
                             "Pipe function '{}' expected {} arguments, found {}",
@@ -596,14 +604,30 @@ fn infer_type(
                     // Pipe function 'print' is a special case
                     // It should always return the same type as the input
                     if pipe_name == "print" {
-                        return Ok(TypedExpr {
-                            expr: Expr::Pipe(
-                                Box::new(left_typed.expr),
-                                pipe_name.clone(),
-                                args.clone(),
-                            ),
-                            expr_type: left_typed.expr_type.clone(),
-                        });
+                        // Check if the left side is a pipe
+                        // Print must be the last pipe
+                        if let Expr::Pipe(_boxed_left, left_pipe_name, _) = &left_typed.expr {
+                            if left_pipe_name == "print" {
+                                return Err("You cannot use the result of print() in another pipe. 'print' must be the last pipe.".to_string());
+                            }
+                        }
+
+                        // Check if the left side is a table when using print
+                        if let TypeConstruct::Table(_) = left_typed.expr_type {
+                            return Ok(TypedExpr {
+                                expr: Expr::Pipe(
+                                    Box::new(left_typed.expr),
+                                    pipe_name.clone(),
+                                    args.clone(),
+                                ),
+                                expr_type: left_typed.expr_type.clone(),
+                            });
+                        } else {
+                            return Err(format!(
+                                "Pipe function 'print' must be used with a table. Got: {:?}",
+                                left_typed.expr_type
+                            ));
+                        }
                     }
 
                     if !allowed {
