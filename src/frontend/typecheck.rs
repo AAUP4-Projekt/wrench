@@ -514,7 +514,6 @@ fn infer_type(
 
                     for (i, (arg, param_type)) in args.iter().zip(param_types.iter()).enumerate() {
                         let arg_typed = infer_type(arg, scope_stack)?;
-                        // Tillad alle tabeller som argument til import
                         if (name == "import" || name == "async_import") && i == 1 {
                             if let (TypeConstruct::Table(_), TypeConstruct::Table(_)) =
                                 (param_type, &arg_typed.expr_type)
@@ -530,16 +529,20 @@ fn infer_type(
                         }
                     }
 
-                    // Returnér korrekt tabeltype for import
                     if name == "import" || name == "async_import" {
                         if let Some(arg) = args.get(1) {
-                            if let Expr::Table(params) = &**arg {
+                            let arg_type = infer_type(arg, scope_stack)?;
+                            if let TypeConstruct::Table(params) = arg_type.expr_type.clone() {
                                 return Ok(TypedExpr {
                                     expr: Expr::FunctionCall(name.clone(), args.clone()),
-                                    expr_type: TypeConstruct::Table(params.clone()),
+                                    expr_type: TypeConstruct::Table(params),
                                 });
                             }
                         }
+                        return Err(format!(
+                            "Second argument to '{}' must be a table declaration or variable with table type",
+                            name
+                        ));
                     }
 
                     Ok(TypedExpr {
@@ -557,7 +560,14 @@ fn infer_type(
         // Case: pipe operation (e.g., `x pipe f`)
         Expr::Pipe(left, pipe_name, args) => {
             let left_typed = infer_type(left, scope_stack)?;
-            println!("Pipe input type: {:?}", left_typed.expr_type);
+
+            let is_left_pipe = matches!(**left, Expr::Pipe(_, _, _));
+            if !is_left_pipe && !matches!(left_typed.expr_type, TypeConstruct::Table(_)) {
+                return Err(format!(
+                    "A pipeline must start with a Table, but got: {:?}",
+                    left_typed.expr_type
+                ));
+            }
 
             if let Some(func_type) = lookup_variable(pipe_name, scope_stack) {
                 if let TypeConstruct::Function(return_type, param_types) = &func_type.var_type {
@@ -572,36 +582,37 @@ fn infer_type(
                             "Pipe function '{}' expected {} arguments, found {}",
                             pipe_name,
                             param_types.len(),
-                            args.len()
+                            effective_args.len()
                         ));
                     }
 
-                    let input_type = &left_typed.expr_type;
-                    let output_type = &**return_type;
+                    let allowed = matches!(
+                        (&param_types[0], &**return_type),
+                        (TypeConstruct::Row(_), TypeConstruct::Row(_))
+                            | (TypeConstruct::Row(_), TypeConstruct::Bool)
+                            | (TypeConstruct::Table(_), TypeConstruct::Table(_))
+                    );
 
-                    let allowed = match (input_type, output_type) {
-                        (TypeConstruct::Row(cols_in), TypeConstruct::Row(cols_out)) => {
-                            cols_in == cols_out
-                        }
-                        (TypeConstruct::Row(cols_in), TypeConstruct::Bool) => {
-                            if let TypeConstruct::Row(cols_param) = &param_types[0] {
-                                cols_in == cols_param
-                            } else {
-                                false
-                            }
-                        }
-                        (TypeConstruct::Table(cols_in), TypeConstruct::Table(cols_out)) => {
-                            cols_in == cols_out
-                        }
-                        _ => false,
-                    };
+                    // Pipe function 'print' is a special case
+                    // It should always return the same type as the input
+                    if pipe_name == "print" {
+                        return Ok(TypedExpr {
+                            expr: Expr::Pipe(
+                                Box::new(left_typed.expr),
+                                pipe_name.clone(),
+                                args.clone(),
+                            ),
+                            expr_type: left_typed.expr_type.clone(),
+                        });
+                    }
 
                     if !allowed {
                         return Err(format!(
                             "Pipe function '{}' must be one of: Row->Row (map), Row->Bool (filter), Table->Table (reduce) with matching columns. Got: {:?} -> {:?}",
-                            pipe_name, input_type, output_type
+                            pipe_name, param_types[0], return_type
                         ));
                     }
+
                     Ok(TypedExpr {
                         expr: Expr::Pipe(
                             Box::new(left_typed.expr),
@@ -739,6 +750,7 @@ fn check_and_cast_type(
             "Cannot implicitly cast Double to Int. Expected {:?}, found {:?}",
             expected_type, typed_expr.expr_type
         )),
+
         // If the expected type matches the inferred type
         _ if expected_type.var_type == typed_expr.expr_type => Ok(typed_expr.expr),
         // If the types do not match, return an error

@@ -67,12 +67,12 @@ fn parse(tokens: Vec<(usize, Token, usize)>) -> Statement {
 fn create_global_environment() -> HashMap<String, VariableInfo> {
     let mut global_env = HashMap::new();
 
-    // print: (any) -> null
+    // print: (any) -> table
     global_env.insert(
         "print".to_string(),
         VariableInfo {
             var_type: TypeConstruct::Function(
-                Box::new(TypeConstruct::Null),
+                Box::new(TypeConstruct::Table(vec![])),
                 vec![TypeConstruct::Any],
             ),
             is_constant: false,
@@ -96,7 +96,7 @@ fn create_global_environment() -> HashMap<String, VariableInfo> {
         VariableInfo {
             var_type: TypeConstruct::Function(
                 Box::new(TypeConstruct::Table(vec![])),
-                vec![TypeConstruct::String, TypeConstruct::Table(vec![])],
+                vec![TypeConstruct::String, TypeConstruct::Any],
             ),
             is_constant: false,
         },
