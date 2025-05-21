@@ -6,6 +6,9 @@ use super::ast::{
     TypedExpr,
 };
 
+/// Structure to hold information about a variable
+/// - `var_type`: The declared type of the variable
+/// - `is_constant`: Whether the variable is immutable
 #[derive(PartialEq, Debug, Clone)]
 pub struct VariableInfo {
     pub var_type: TypeConstruct,
@@ -26,14 +29,13 @@ pub fn type_check(
             // Skip statement, do nothing
         }
 
-        // Case: Compound statement (two statements executed sequentially)
+        // Case: Compound statement - Check both parts of a compound statement
         Statement::Compound(stmt1, stmt2) => {
-            // Type check both statements in the compound statement
             type_check(stmt1, scope_stack)?;
             type_check(stmt2, scope_stack)?;
         }
 
-        // Case: Variable declaration
+        // Case: Variable declaration - Handle different types of declarations
         Statement::Declaration(declaration) => {
             match declaration {
                 // Case: Variable declaration with a type, name, and expression
@@ -93,6 +95,7 @@ pub fn type_check(
                         },
                     );
 
+                    // Create a scope for the function parameters
                     let mut param_scope = HashMap::new();
                     for Parameter::Parameter(param_type, param_name) in params {
                         param_scope.insert(
@@ -104,6 +107,7 @@ pub fn type_check(
                         );
                     }
 
+                    // Preserve previously declared functions
                     let mut function_scope = HashMap::new();
                     for (k, v) in scope_stack[0].iter() {
                         if matches!(v.var_type, TypeConstruct::Function(_, _)) {
@@ -557,7 +561,6 @@ fn infer_type(
 
             if let Some(func_type) = lookup_variable(pipe_name, scope_stack) {
                 if let TypeConstruct::Function(return_type, param_types) = &func_type.var_type {
-                    // Hvis ingen argumenter gives, men funktionen forventer 1 parameter, brug inputtet som argument
                     let effective_args: Vec<Expr> = if args.is_empty() && param_types.len() == 1 {
                         vec![*Box::new(left_typed.expr.clone())]
                     } else {
@@ -573,36 +576,37 @@ fn infer_type(
                         ));
                     }
 
-                    // Check argument types
-                    for (arg, param_type) in effective_args.iter().zip(param_types.iter()) {
-                        let arg_typed = infer_type(arg, scope_stack)?;
-                        let types_match = arg_typed.expr_type == *param_type
-        || *param_type == TypeConstruct::Any
-        // Allows 
-        || (matches!(&arg_typed.expr_type, TypeConstruct::Table(_cols1))
-            && matches!(param_type, TypeConstruct::Row(_cols2))
-            && if let (TypeConstruct::Table(cols1), TypeConstruct::Row(cols2)) = (&arg_typed.expr_type, param_type) {
-                cols1 == cols2
-            } else { false })
-        || (matches!(&arg_typed.expr_type, TypeConstruct::Row(_cols1))
-            && matches!(param_type, TypeConstruct::Table(_cols2))
-            && if let (TypeConstruct::Row(cols1), TypeConstruct::Table(cols2)) = (&arg_typed.expr_type, param_type) {
-                cols1 == cols2
-            } else { false });
+                    let input_type = &left_typed.expr_type;
+                    let output_type = &**return_type;
 
-                        if !types_match {
-                            return Err(format!(
-                                "Type mismatch in pipe function '{}': expected {:?}, found {:?}",
-                                pipe_name, param_type, arg_typed.expr_type
-                            ));
+                    let allowed = match (input_type, output_type) {
+                        (TypeConstruct::Row(cols_in), TypeConstruct::Row(cols_out)) => {
+                            cols_in == cols_out
                         }
-                    }
+                        (TypeConstruct::Row(cols_in), TypeConstruct::Bool) => {
+                            if let TypeConstruct::Row(cols_param) = &param_types[0] {
+                                cols_in == cols_param
+                            } else {
+                                false
+                            }
+                        }
+                        (TypeConstruct::Table(cols_in), TypeConstruct::Table(cols_out)) => {
+                            cols_in == cols_out
+                        }
+                        _ => false,
+                    };
 
+                    if !allowed {
+                        return Err(format!(
+                            "Pipe function '{}' must be one of: Row->Row (map), Row->Bool (filter), Table->Table (reduce) with matching columns. Got: {:?} -> {:?}",
+                            pipe_name, input_type, output_type
+                        ));
+                    }
                     Ok(TypedExpr {
                         expr: Expr::Pipe(
                             Box::new(left_typed.expr),
                             pipe_name.clone(),
-                            args.clone(), // behold original args for AST, men brug effective_args til typecheck
+                            args.clone(),
                         ),
                         expr_type: *return_type.clone(),
                     })

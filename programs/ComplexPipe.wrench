@@ -16,7 +16,6 @@ fn table(int sum) sum(table(int new_id) t){
     return table_result;
 };
 
-
 //var table(int a) b = table_add_row(table(int a), row(int a = 3));
 //print(b);
 
