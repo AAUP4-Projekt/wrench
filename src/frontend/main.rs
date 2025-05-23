@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use crate::backend::evaluate::interpret;
 
 use super::{
-    ast::{Statement, TypeConstruct, VariableInfo},
-    typecheck::type_check,
+    ast::{Statement, TypeConstruct},
+    typecheck::{VariableInfo, type_check},
 };
 use lalrpop_util::{ParseError, lalrpop_mod};
 use logos::Logos;
@@ -67,16 +67,54 @@ fn parse(tokens: Vec<(usize, Token, usize)>) -> Statement {
 // Define a global environment for functions
 fn create_global_environment() -> HashMap<String, VariableInfo> {
     let mut global_env = HashMap::new();
+
+    // print: (any) -> table
     global_env.insert(
         "print".to_string(),
         VariableInfo {
             var_type: TypeConstruct::Function(
-                Box::new(TypeConstruct::Null),
+                Box::new(TypeConstruct::Table(vec![])),
                 vec![TypeConstruct::Any],
             ),
             is_constant: false,
         },
     );
+
+    // import: (string, table) -> table
+    global_env.insert(
+        "import".to_string(),
+        VariableInfo {
+            var_type: TypeConstruct::Function(
+                Box::new(TypeConstruct::Table(vec![])),
+                vec![TypeConstruct::String, TypeConstruct::Table(vec![])],
+            ),
+            is_constant: false,
+        },
+    );
+    // async_import: (string, table) -> table
+    global_env.insert(
+        "async_import".to_string(),
+        VariableInfo {
+            var_type: TypeConstruct::Function(
+                Box::new(TypeConstruct::Table(vec![])),
+                vec![TypeConstruct::String, TypeConstruct::Any],
+            ),
+            is_constant: false,
+        },
+    );
+
+    // table_add_row: (table, row) -> null
+    global_env.insert(
+        "table_add_row".to_string(),
+        VariableInfo {
+            var_type: TypeConstruct::Function(
+                Box::new(TypeConstruct::Null),
+                vec![TypeConstruct::Any, TypeConstruct::Any],
+            ),
+            is_constant: false,
+        },
+    );
+
     global_env
 }
 
@@ -107,8 +145,8 @@ pub fn run(input: &str, debug_mode: bool) {
     let global_env: HashMap<String, VariableInfo> = create_global_environment();
 
     // This stack of scopes keeps track of variable names and their types
-    let mut scope_stack: Vec<HashMap<String, VariableInfo>> = vec![HashMap::new()];
-    match type_check(&syntax_tree, &mut scope_stack, &global_env) {
+    let mut scope_stack: Vec<HashMap<String, VariableInfo>> = vec![global_env];
+    match type_check(&syntax_tree, &mut scope_stack) {
         Ok(_) => {
             interpret(syntax_tree);
         }

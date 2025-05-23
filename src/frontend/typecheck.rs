@@ -3,8 +3,17 @@ use std::collections::{HashMap, HashSet};
 // Import the AST types
 use super::ast::{
     ColumnAssignmentEnum, Declaration, Expr, Operator, Parameter, Statement, TypeConstruct,
-    TypedExpr, VariableInfo,
+    TypedExpr,
 };
+
+/// Structure to hold information about a variable
+/// - `var_type`: The declared type of the variable
+/// - `is_constant`: Whether the variable is immutable
+#[derive(PartialEq, Debug, Clone)]
+pub struct VariableInfo {
+    pub var_type: TypeConstruct,
+    pub is_constant: bool,
+}
 
 // Main function to perform type checking on a statement
 // - `statement`: The statement to type check
@@ -12,7 +21,6 @@ use super::ast::{
 pub fn type_check(
     statement: &Statement,
     scope_stack: &mut Vec<HashMap<String, VariableInfo>>,
-    global_stack: &HashMap<String, VariableInfo>,
 ) -> Result<(), String> {
     // Match on the type of statement to handle different cases
     match statement {
@@ -21,14 +29,13 @@ pub fn type_check(
             // Skip statement, do nothing
         }
 
-        // Case: Compound statement (two statements executed sequentially)
+        // Case: Compound statement - Check both parts of a compound statement
         Statement::Compound(stmt1, stmt2) => {
-            // Type check both statements in the compound statement
-            type_check(stmt1, scope_stack, global_stack)?;
-            type_check(stmt2, scope_stack, global_stack)?;
+            type_check(stmt1, scope_stack)?;
+            type_check(stmt2, scope_stack)?;
         }
 
-        // Case: Variable declaration
+        // Case: Variable declaration - Handle different types of declarations
         Statement::Declaration(declaration) => {
             match declaration {
                 // Case: Variable declaration with a type, name, and expression
@@ -41,7 +48,6 @@ pub fn type_check(
                         }),
                         expr,
                         scope_stack,
-                        global_stack,
                     )?;
                     // Add variable to the current scope
                     scope_stack.last_mut().unwrap().insert(
@@ -55,7 +61,7 @@ pub fn type_check(
                 // Case: Constant declaration with a type, name, and expression
                 Declaration::Constant(const_type, name, expr) => {
                     // Check and cast the type of the expression
-                    let typed_expr = infer_type(expr, scope_stack, global_stack)?;
+                    let typed_expr = infer_type(expr, scope_stack)?;
                     if *const_type != typed_expr.expr_type {
                         return Err(format!(
                             "Type mismatch: expected {:?}, found {:?} for constant '{}'",
@@ -78,24 +84,21 @@ pub fn type_check(
                         .map(|Parameter::Parameter(param_type, _)| param_type.clone())
                         .collect();
 
-                    // Add the function to the current scope
-                    scope_stack.last_mut().unwrap().insert(
+                    scope_stack[0].insert(
                         name.clone(),
                         VariableInfo {
                             var_type: TypeConstruct::Function(
                                 Box::new(return_type.clone()),
                                 param_types,
                             ),
-                            is_constant: true, // Functions are considered constants
+                            is_constant: true,
                         },
                     );
 
-                    // Create a new scope for the function body
-                    let mut function_scope = HashMap::new();
-
-                    // Add parameters to the function scope
+                    // Create a scope for the function parameters
+                    let mut param_scope = HashMap::new();
                     for Parameter::Parameter(param_type, param_name) in params {
-                        function_scope.insert(
+                        param_scope.insert(
                             param_name.clone(),
                             VariableInfo {
                                 var_type: param_type.clone(),
@@ -104,16 +107,26 @@ pub fn type_check(
                         );
                     }
 
-                    // Type check the function body using the new function scope
-                    let mut function_scope_stack = vec![function_scope];
-                    type_check(body, &mut function_scope_stack, global_stack)?;
+                    // Preserve previously declared functions
+                    let mut function_scope = HashMap::new();
+                    for (k, v) in scope_stack[0].iter() {
+                        if matches!(v.var_type, TypeConstruct::Function(_, _)) {
+                            function_scope.insert(k.clone(), v.clone());
+                        }
+                    }
+
+                    let mut function_scope_stack = Vec::new();
+                    function_scope_stack.push(function_scope);
+                    function_scope_stack.push(param_scope);
+
+                    type_check(body, &mut function_scope_stack)?;
                 }
             }
         }
 
         // Case: For loop
         Statement::For(param, iterable_expr, body) => {
-            let typed_iterable = infer_type(iterable_expr, scope_stack, global_stack)?;
+            let typed_iterable = infer_type(iterable_expr, scope_stack)?;
 
             // Match on the type of the iterable expression
             match &typed_iterable.expr_type {
@@ -139,8 +152,63 @@ pub fn type_check(
                         }
                     }
 
-                    type_check(body, scope_stack, global_stack)?;
+                    type_check(body, scope_stack)?;
 
+                    pop_scope(scope_stack);
+                }
+                TypeConstruct::Row(_) => {
+                    push_scope(scope_stack);
+
+                    // Match on the parameter type
+                    match param {
+                        Parameter::Parameter(param_type, param_name) => {
+                            if *param_type != typed_iterable.expr_type {
+                                return Err(format!(
+                                    "Type mismatch in for-loop: expected {:?}, found {:?} for iterator '{}'",
+                                    param_type, typed_iterable.expr_type, param_name
+                                ));
+                            }
+                            scope_stack.last_mut().unwrap().insert(
+                                param_name.clone(),
+                                VariableInfo {
+                                    var_type: typed_iterable.expr_type.clone(),
+                                    is_constant: false,
+                                },
+                            );
+                        }
+                    }
+
+                    type_check(body, scope_stack)?;
+
+                    pop_scope(scope_stack);
+                }
+                TypeConstruct::Table(table_params) => {
+                    push_scope(scope_stack);
+                    match param {
+                        Parameter::Parameter(param_type, param_name) => {
+                            if let TypeConstruct::Row(row_params) = param_type {
+                                if row_params != table_params {
+                                    return Err(format!(
+                                        "Type mismatch in for-loop: expected Row({:?}), found Table({:?}) for iterator '{}'",
+                                        row_params, table_params, param_name
+                                    ));
+                                }
+                            } else {
+                                return Err(format!(
+                                    "Type mismatch in for-loop: expected Row(...), found Table({:?}) for iterator '{}'",
+                                    table_params, param_name
+                                ));
+                            }
+                            scope_stack.last_mut().unwrap().insert(
+                                param_name.clone(),
+                                VariableInfo {
+                                    var_type: param_type.clone(),
+                                    is_constant: false,
+                                },
+                            );
+                        }
+                    }
+                    type_check(body, scope_stack)?;
                     pop_scope(scope_stack);
                 }
                 _ => {
@@ -154,12 +222,12 @@ pub fn type_check(
 
         // Case: Variable assignment
         Statement::VariableAssignment(name, expr) => {
-            if let Some(var_type) = lookup_variable(name, scope_stack, global_stack) {
+            if let Some(var_type) = lookup_variable(name, scope_stack) {
                 if var_type.is_constant {
                     return Err(format!("Cannot assign to constant variable '{}'", name));
                 }
 
-                check_and_cast_type(&var_type, expr, scope_stack, global_stack)?;
+                check_and_cast_type(&var_type, expr, scope_stack)?;
                 // Update the variable type in the current scope
                 scope_stack
                     .last_mut()
@@ -172,43 +240,43 @@ pub fn type_check(
 
         // Case: Constant assignment
         Statement::Expr(expr) => {
-            infer_type(expr, scope_stack, global_stack)?;
+            infer_type(expr, scope_stack)?;
         }
 
         // Case: If statement
         Statement::If(condition, body, else_body) => {
-            let typed_condition = infer_type(condition, scope_stack, global_stack)?;
+            let typed_condition = infer_type(condition, scope_stack)?;
             if typed_condition.expr_type != TypeConstruct::Bool {
                 return Err("If condition must be a boolean".to_string());
             }
 
             // Push a new scope for the if body
             push_scope(scope_stack);
-            type_check(body, scope_stack, global_stack)?;
+            type_check(body, scope_stack)?;
             pop_scope(scope_stack);
 
             // Push a new scope for the else body
             push_scope(scope_stack);
-            type_check(else_body, scope_stack, global_stack)?;
+            type_check(else_body, scope_stack)?;
             pop_scope(scope_stack);
         }
 
         // Case: While statement
         Statement::While(condition, body) => {
-            let typed_condition = infer_type(condition, scope_stack, global_stack)?;
+            let typed_condition = infer_type(condition, scope_stack)?;
             if typed_condition.expr_type != TypeConstruct::Bool {
                 return Err("While condition must be a boolean".to_string());
             }
 
             // Push a new scope for the while body
             push_scope(scope_stack);
-            type_check(body, scope_stack, global_stack)?;
+            type_check(body, scope_stack)?;
             pop_scope(scope_stack);
         }
 
         // Case: return statement
         Statement::Return(expr) => {
-            infer_type(expr, scope_stack, global_stack)?;
+            infer_type(expr, scope_stack)?;
         }
     }
 
@@ -219,7 +287,6 @@ pub fn type_check(
 fn infer_type(
     expr: &Expr,
     scope_stack: &mut Vec<HashMap<String, VariableInfo>>,
-    global_stack: &HashMap<String, VariableInfo>,
 ) -> Result<TypedExpr, String> {
     match expr {
         // Case: Integer literal (e.g., `5`)
@@ -251,7 +318,7 @@ fn infer_type(
 
         // Case: Identifier (e.g., `x`)
         Expr::Identifier(name) => {
-            if let Some(var_info) = lookup_variable(name, scope_stack, global_stack) {
+            if let Some(var_info) = lookup_variable(name, scope_stack) {
                 Ok(TypedExpr {
                     expr: Expr::Identifier(name.clone()),
                     expr_type: var_info.var_type.clone(),
@@ -263,8 +330,8 @@ fn infer_type(
 
         // Case: Binary operation (e.g., `x + y`)
         Expr::Operation(left, op, right) => {
-            let left_typed = infer_type(left, scope_stack, global_stack)?;
-            let right_typed = infer_type(right, scope_stack, global_stack)?;
+            let left_typed = infer_type(left, scope_stack)?;
+            let right_typed = infer_type(right, scope_stack)?;
 
             // Check if the operator is valid for the types
             let widened_left = check_and_cast_type(
@@ -274,7 +341,6 @@ fn infer_type(
                 },
                 &left_typed.expr,
                 scope_stack,
-                global_stack,
             )?;
             let widened_right = check_and_cast_type(
                 &VariableInfo {
@@ -283,8 +349,16 @@ fn infer_type(
                 },
                 &right_typed.expr,
                 scope_stack,
-                global_stack,
             )?;
+
+            if matches!(left_typed.expr_type, TypeConstruct::Row(_))
+                || matches!(right_typed.expr_type, TypeConstruct::Row(_))
+                || matches!(left_typed.expr_type, TypeConstruct::Table(_))
+                || matches!(right_typed.expr_type, TypeConstruct::Table(_))
+            {
+                return Err("Operation on Row or Table types is not allowed".to_string());
+            }
+
             // Determine the result type based on the operator and operand types
             let result_type = match (&left_typed.expr_type, &right_typed.expr_type) {
                 (TypeConstruct::Int, TypeConstruct::Double)
@@ -301,10 +375,21 @@ fn infer_type(
 
             // Only allow arithmetic operations on Int or Double
             match op {
+                Operator::Equals | Operator::LessThan | Operator::LessThanOrEqual => {
+                    Ok(TypedExpr {
+                        expr: Expr::Operation(
+                            Box::new(widened_left),
+                            (*op).clone(),
+                            Box::new(widened_right),
+                        ),
+                        expr_type: TypeConstruct::Bool,
+                    })
+                }
                 Operator::Addition
                 | Operator::Subtraction
                 | Operator::Multiplication
                 | Operator::Division
+                | Operator::Modulo
                 | Operator::Exponent => {
                     if result_type == TypeConstruct::Int || result_type == TypeConstruct::Double {
                         // Check for division by zero
@@ -316,7 +401,6 @@ fn infer_type(
                                 _ => {}
                             }
                         }
-
                         Ok(TypedExpr {
                             expr: Expr::Operation(
                                 Box::new(widened_left),
@@ -329,13 +413,27 @@ fn infer_type(
                         Err(format!("Invalid operation for type {:?}", result_type))
                     }
                 }
-                _ => Err("Unsupported operator".to_string()),
+                Operator::Or => {
+                    if left_typed.expr_type == TypeConstruct::Bool
+                        && right_typed.expr_type == TypeConstruct::Bool
+                    {
+                        Ok(TypedExpr {
+                            expr: Expr::Operation(
+                                Box::new(widened_left),
+                                (*op).clone(),
+                                Box::new(widened_right),
+                            ),
+                            expr_type: TypeConstruct::Bool,
+                        })
+                    } else {
+                        Err("Logical operators require boolean operands".to_string())
+                    }
+                }
             }
         }
-
         // Case: Logical NOT (e.g., `!true`)
         Expr::Not(inner) => {
-            let inner_typed = infer_type(inner, scope_stack, global_stack)?;
+            let inner_typed = infer_type(inner, scope_stack)?;
             if inner_typed.expr_type == TypeConstruct::Bool {
                 Ok(TypedExpr {
                     expr: Expr::Not(Box::new(inner_typed.expr)),
@@ -352,10 +450,10 @@ fn infer_type(
                 return Err("Cannot infer type of empty array".to_string());
             }
 
-            let first_typed = infer_type(&elements[0], scope_stack, global_stack)?;
+            let first_typed = infer_type(&elements[0], scope_stack)?;
             // Ensure all elements in the array have the same type
             for e in elements.iter().skip(1) {
-                let t = infer_type(e, scope_stack, global_stack)?;
+                let t = infer_type(e, scope_stack)?;
                 if t.expr_type != first_typed.expr_type {
                     return Err("Array elements must have the same type".to_string());
                 }
@@ -365,10 +463,7 @@ fn infer_type(
                 expr: Expr::Array(
                     elements
                         .iter()
-                        .map(|e| {
-                            infer_type(e, scope_stack, global_stack)
-                                .map(|typed| Box::new(typed.expr))
-                        })
+                        .map(|e| infer_type(e, scope_stack).map(|typed| Box::new(typed.expr)))
                         .collect::<Result<Vec<_>, _>>()?,
                 ),
                 expr_type: TypeConstruct::Array(Box::new(first_typed.expr_type)),
@@ -377,8 +472,8 @@ fn infer_type(
 
         // Case: Indexing (e.g., `arr[0]`)
         Expr::Indexing(array_expr, index_expr) => {
-            let array_typed = infer_type(array_expr, scope_stack, global_stack)?;
-            let index_typed = infer_type(index_expr, scope_stack, global_stack)?;
+            let array_typed = infer_type(array_expr, scope_stack)?;
+            let index_typed = infer_type(index_expr, scope_stack)?;
 
             if index_typed.expr_type != TypeConstruct::Int {
                 return Err("Index must be an integer".to_string());
@@ -406,8 +501,7 @@ fn infer_type(
 
         // Case for function call (e.g., `f(x, y)`)
         Expr::FunctionCall(name, args) => {
-            if let Some(func_type) = lookup_variable(name, scope_stack, global_stack) {
-                // Check if the function is of type Function
+            if let Some(func_type) = lookup_variable(name, scope_stack) {
                 if let TypeConstruct::Function(return_type, param_types) = &func_type.var_type {
                     if args.len() != param_types.len() {
                         return Err(format!(
@@ -418,19 +512,39 @@ fn infer_type(
                         ));
                     }
 
-                    // Check argument types
-                    for (arg, param_type) in args.iter().zip(param_types.iter()) {
-                        let arg_typed = infer_type(arg, scope_stack, global_stack)?;
+                    for (i, (arg, param_type)) in args.iter().zip(param_types.iter()).enumerate() {
+                        let arg_typed = infer_type(arg, scope_stack)?;
+                        if (name == "import" || name == "async_import") && i == 1 {
+                            if let (TypeConstruct::Table(_), TypeConstruct::Table(_)) =
+                                (param_type, &arg_typed.expr_type)
+                            {
+                                continue;
+                            }
+                        }
                         if *param_type != TypeConstruct::Any && arg_typed.expr_type != *param_type {
-                            // If the parameter type is not Any, check for type mismatch
-                            // Any is used for print
                             return Err(format!(
                                 "Type mismatch in function call: expected {:?}, found {:?}",
                                 param_type, arg_typed.expr_type
                             ));
                         }
                     }
-                    // Check if the output of the function is either Row or Table
+
+                    if name == "import" || name == "async_import" {
+                        if let Some(arg) = args.get(1) {
+                            let arg_type = infer_type(arg, scope_stack)?;
+                            if let TypeConstruct::Table(params) = arg_type.expr_type.clone() {
+                                return Ok(TypedExpr {
+                                    expr: Expr::FunctionCall(name.clone(), args.clone()),
+                                    expr_type: TypeConstruct::Table(params),
+                                });
+                            }
+                        }
+                        return Err(format!(
+                            "Second argument to '{}' must be a table declaration or variable with table type",
+                            name
+                        ));
+                    }
+
                     Ok(TypedExpr {
                         expr: Expr::FunctionCall(name.clone(), args.clone()),
                         expr_type: *return_type.clone(),
@@ -445,59 +559,97 @@ fn infer_type(
 
         // Case: pipe operation (e.g., `x pipe f`)
         Expr::Pipe(left, pipe_name, args) => {
-            // Type-check input to the pipe
-            let left_typed = infer_type(left, scope_stack, global_stack)?;
-            println!("Pipe input type: {:?}", left_typed.expr_type);
+            let left_typed = infer_type(left, scope_stack)?;
 
-            // Check if the input to the pipe is either Row or Table
-            match left_typed.expr_type {
-                TypeConstruct::Row(_) | TypeConstruct::Table(_) => {
-                    // Look up the pipe function in the scope
-                    if let Some(func_type) = lookup_variable(pipe_name, scope_stack, global_stack) {
-                        if let TypeConstruct::Function(return_type, param_types) =
-                            &func_type.var_type
-                        {
-                            // Ensure the number of arguments matches the function's parameters
-                            if args.len() != param_types.len() {
-                                return Err(format!(
-                                    "Pipe function '{}' expected {} arguments, found {}",
-                                    pipe_name,
-                                    param_types.len(),
-                                    args.len()
-                                ));
+            // Check is the left side is a pipe
+            let is_left_pipe = matches!(**left, Expr::Pipe(_, _, _));
+
+            // If the left side is not a pipe, check if it is a type that can be piped
+            // The only type that can be piped is a table
+            if !is_left_pipe && !matches!(left_typed.expr_type, TypeConstruct::Table(_)) {
+                return Err(format!(
+                    "A pipeline must start with a Table, but got: {:?}",
+                    left_typed.expr_type
+                ));
+            }
+
+            // Check if the pipe function is defined
+            if let Some(func_type) = lookup_variable(pipe_name, scope_stack) {
+                if let TypeConstruct::Function(return_type, param_types) = &func_type.var_type {
+                    let effective_args: Vec<Expr> = if args.is_empty() && param_types.len() == 1 {
+                        vec![*Box::new(left_typed.expr.clone())]
+                    } else {
+                        args.iter().map(|b| (*b.clone())).collect()
+                    };
+
+                    // Check if the number of arguments matches
+                    // If the function is a pipe function, we need to check if the number of arguments matches
+                    // the number of parameters
+                    if effective_args.len() != param_types.len() {
+                        return Err(format!(
+                            "Pipe function '{}' expected {} arguments, found {}",
+                            pipe_name,
+                            param_types.len(),
+                            effective_args.len()
+                        ));
+                    }
+
+                    let allowed = matches!(
+                        (&param_types[0], &**return_type),
+                        (TypeConstruct::Row(_), TypeConstruct::Row(_))
+                            | (TypeConstruct::Row(_), TypeConstruct::Bool)
+                            | (TypeConstruct::Table(_), TypeConstruct::Table(_))
+                    );
+
+                    // Pipe function 'print' is a special case
+                    // It should always return the same type as the input
+                    if pipe_name == "print" {
+                        // Check if the left side is a pipe
+                        // Print must be the last pipe
+                        if let Expr::Pipe(_boxed_left, left_pipe_name, _) = &left_typed.expr {
+                            if left_pipe_name == "print" {
+                                return Err("You cannot use the result of print() in another pipe. 'print' must be the last pipe.".to_string());
                             }
+                        }
 
-                            // Check argument types
-                            for (arg, param_type) in args.iter().zip(param_types.iter()) {
-                                let arg_typed = infer_type(arg, scope_stack, global_stack)?;
-                                if arg_typed.expr_type != *param_type {
-                                    return Err(format!(
-                                        "Type mismatch in pipe function '{}': expected {:?}, found {:?}",
-                                        pipe_name, param_type, arg_typed.expr_type
-                                    ));
-                                }
-                            }
-
-                            // If all checks pass, return the typed expression
-                            Ok(TypedExpr {
+                        // Check if the left side is a table when using print
+                        if let TypeConstruct::Table(_) = left_typed.expr_type {
+                            return Ok(TypedExpr {
                                 expr: Expr::Pipe(
                                     Box::new(left_typed.expr),
                                     pipe_name.clone(),
                                     args.clone(),
                                 ),
-                                expr_type: *return_type.clone(),
-                            })
+                                expr_type: TypeConstruct::Table(vec![]), // Return a empty table type
+                            });
                         } else {
-                            Err(format!("'{}' is not a valid pipe function", pipe_name))
+                            return Err(format!(
+                                "Pipe function 'print' must be used with a table. Got: {:?}",
+                                left_typed.expr_type
+                            ));
                         }
-                    } else {
-                        Err(format!("Undefined pipe function '{}'", pipe_name))
                     }
+
+                    if !allowed {
+                        return Err(format!(
+                            "Pipe function '{}' must be one of: Row->Row (map), Row->Bool (filter), Table->Table (reduce) with matching columns. Got: {:?} -> {:?}",
+                            pipe_name, param_types[0], return_type
+                        ));
+                    }
+
+                    Ok(TypedExpr {
+                        expr: Expr::Pipe(
+                            Box::new(left_typed.expr),
+                            pipe_name.clone(),
+                            args.clone(),
+                        ),
+                        expr_type: *return_type.clone(),
+                    })
+                } else {
+                    Err(format!("'{}' is not a valid pipe function", pipe_name))
                 }
-                _ => Err(format!(
-                    "Pipe operation input must be of type Row or Table, found {:?}",
-                    left_typed.expr_type
-                )),
+            } else {
+                Err(format!("Undefined pipe function '{}'", pipe_name))
             }
         }
 
@@ -535,7 +687,7 @@ fn infer_type(
                 // Match on the type of column assignment
                 match column {
                     ColumnAssignmentEnum::ColumnAssignment(param_type, param_name, expr) => {
-                        let typed_expr = infer_type(expr, scope_stack, global_stack)?;
+                        let typed_expr = infer_type(expr, scope_stack)?;
                         if *param_type != typed_expr.expr_type {
                             return Err(format!(
                                 "Type mismatch: expected {:?}, found {:?} for column '{}'",
@@ -555,16 +707,25 @@ fn infer_type(
 
         // Case: column indexing
         Expr::ColumnIndexing(table_expr, column_name) => {
-            let table_typed = infer_type(table_expr, scope_stack, global_stack)?;
+            let table_typed = infer_type(table_expr, scope_stack)?;
 
-            // Check if the table is of type Table or Row
-            match table_typed.expr_type {
-                TypeConstruct::Table(_) | TypeConstruct::Row(_) => {
-                    // Check if the column is of type String
-                    Ok(TypedExpr {
-                        expr: Expr::ColumnIndexing(Box::new(table_typed.expr), column_name.clone()),
-                        expr_type: table_typed.expr_type.clone(), // Return the same type as the table
-                    })
+            match &table_typed.expr_type {
+                TypeConstruct::Table(params) | TypeConstruct::Row(params) => {
+                    for Parameter::Parameter(col_type, col_name) in params {
+                        if col_name == column_name {
+                            return Ok(TypedExpr {
+                                expr: Expr::ColumnIndexing(
+                                    Box::new(table_typed.expr),
+                                    column_name.clone(),
+                                ),
+                                expr_type: col_type.clone(),
+                            });
+                        }
+                    }
+                    Err(format!(
+                        "Column '{}' not found in {:?}",
+                        column_name, table_typed.expr_type
+                    ))
                 }
                 _ => Err("Cannot index into non-table/row type".to_string()),
             }
@@ -576,16 +737,11 @@ fn infer_type(
 pub fn lookup_variable(
     name: &str,
     scope_stack: &[HashMap<String, VariableInfo>],
-    global_stack: &HashMap<String, VariableInfo>,
 ) -> Option<VariableInfo> {
     for scope in scope_stack.iter().rev() {
         if let Some(var_info) = scope.get(name) {
             return Some(var_info.clone());
         }
-    }
-
-    if let Some(var_info) = global_stack.get(name) {
-        return Some(var_info.clone());
     }
     None
 }
@@ -607,9 +763,8 @@ fn check_and_cast_type(
     expected_type: &VariableInfo,
     expr: &Expr,
     scope_stack: &mut Vec<HashMap<String, VariableInfo>>,
-    global_stack: &HashMap<String, VariableInfo>,
 ) -> Result<Expr, String> {
-    let typed_expr = infer_type(expr, scope_stack, global_stack)?;
+    let typed_expr = infer_type(expr, scope_stack)?;
 
     match (&expected_type.var_type, &typed_expr.expr_type) {
         // Implicit cast from Int to Double allowed
@@ -619,6 +774,7 @@ fn check_and_cast_type(
             "Cannot implicitly cast Double to Int. Expected {:?}, found {:?}",
             expected_type, typed_expr.expr_type
         )),
+
         // If the expected type matches the inferred type
         _ if expected_type.var_type == typed_expr.expr_type => Ok(typed_expr.expr),
         // If the types do not match, return an error
@@ -629,73 +785,184 @@ fn check_and_cast_type(
     }
 }
 
-/*
 //Unit-integration tests:
 #[cfg(test)]
 mod tests {
-    use std::result;
 
     use super::*;
     use crate::frontend::main::create_syntax_tree;
 
     //type casting unit tests
     #[test]
-    fn test_legal_int_plus_double_implicit() {
-        let aritmoperation = "var int a = 5; var double b = 4.5; a + b;";
-        let tree = create_syntax_tree(aritmoperation);
-        let result = type_check(&tree);
-        assert!(result.is_ok(), "int + double is allowed");
-    }
-    #[test]
-    fn test_legal_double_plus_int_implicit() {
-        let aritmoperation = "var double a = 3.5; var int b = 4; a + b;";
-        let tree = create_syntax_tree(aritmoperation);
-        let result = type_check(&tree);
-        assert!(result.is_ok(), "double + int is allowed");
-    }
-    #[test]
-    fn test_legal_int_minus_double_implicit() {
-        let aritmoperation = "var int a = 5; var double b = 4.5; a - b;";
-        let tree = create_syntax_tree(aritmoperation);
-        let result = type_check(&tree);
-        assert!(result.is_ok(), "int - double is allowed");
-    }
-    #[test]
-    fn test_legal_double_minus_int_implicit() {
-        let aritmoperation = "var double a = 3.5; var int b = 4; a - b;";
-        let tree = create_syntax_tree(aritmoperation);
-        let result = type_check(&tree);
-        assert!(result.is_ok(), "double - int is allowed");
-    }
-    #[test]
-    fn test_legal_int_times_double_implicit() {
-        let aritmoperation = "var int a = 5; var double b = 4.5; a * b;";
-        let tree = create_syntax_tree(aritmoperation);
-        let result = type_check(&tree);
-        assert!(result.is_ok(), "int * double is allowed");
-    }
-    #[test]
-    fn test_legal_double_times_int_implicit() {
-        let aritmoperation = "var double a = 3.5; var int b = 4; a * b;";
-        let tree = create_syntax_tree(aritmoperation);
-        let result = type_check(&tree);
-        assert!(result.is_ok(), "double * int is allowed");
-    }
-    #[test]
-    fn test_legal_int_slash_double_implicit() {
-        let aritmoperation = "var int a = 5; var double b = 4.5; a / b;";
-        let tree = create_syntax_tree(aritmoperation);
-        let result = type_check(&tree);
-        assert!(result.is_ok(), "int / double is allowed");
+    fn test_illegal_double_to_int_shallowing() {
+        let statement = "var int a = 5; var double b = 4.5; a = b;";
+        let tree = create_syntax_tree(statement);
+        let mut scope_stack = vec![HashMap::new()];
+        let result = type_check(&tree, &mut scope_stack);
+        assert!(
+            result.is_err(),
+            "double to int shallow casting is not allowed"
+        );
     }
 
     #[test]
-    fn test_legal_double_slash_int_implicit() {
-        let aritmoperation = "var double a = 3.5; var int b = 4; a / b;";
-        let tree = create_syntax_tree(aritmoperation);
-        let result = type_check(&tree);
-        assert!(result.is_ok(), "double / int is allowed");
+    fn test_legal_double_plus_int_implicit() {
+        let statement =
+            "var double a = 3.5; var int b = 4; var double c = b; var double result = a + c;";
+        let tree = create_syntax_tree(statement);
+        let mut scope_stack = vec![HashMap::new()];
+        let result = type_check(&tree, &mut scope_stack);
+        assert!(
+            result.is_ok(),
+            "double + int is allowed and results in a double"
+        );
     }
+
+    #[test]
+    fn test_illegal_operation_between_incompatible_types() {
+        let statement = "var string a = \"hello\"; var int b = 5; var string result = a + b;";
+        let tree = create_syntax_tree(statement);
+        let mut scope_stack = vec![HashMap::new()];
+        let result = type_check(&tree, &mut scope_stack);
+        assert!(
+            result.is_err(),
+            "Operations between incompatible types (string + int) is not allowed"
+        );
+    }
+
+    #[test]
+    fn test_illegal_scope_in_with_functions() {
+        let statement = "var int a = 5; fn int f() { var int b = 10; return a + b; };";
+        let tree = create_syntax_tree(statement);
+        let mut scope_stack = vec![HashMap::new()];
+        let result = type_check(&tree, &mut scope_stack);
+        assert!(
+            result.is_err(),
+            "reaching out of scope with functions is not allowed"
+        );
+    }
+
+    #[test]
+    fn test_function_call_with_incorrect_argument_types() {
+        let statement = "
+            fn int add(int a, int b) {
+                return a + b;
+            };
+            var double result = add(3.5, 4); 
+        ";
+        let tree = create_syntax_tree(statement);
+        let mut scope_stack = vec![HashMap::new()];
+        let result = type_check(&tree, &mut scope_stack);
+        assert!(
+            result.is_err(),
+            "Function calls with incorrect argument types should not be allowed"
+        );
+    }
+
+    #[test]
+    fn test_function_call_with_correct_argument_types() {
+        let statement = "
+            fn int add(int a, int b) {
+                return a + b;
+            };
+            var int result = add(3, 4); 
+        ";
+        let tree = create_syntax_tree(statement);
+        let mut scope_stack = vec![HashMap::new()];
+        let result = type_check(&tree, &mut scope_stack);
+        assert!(
+            result.is_ok(),
+            "Function calls with correct argument types should be allowed"
+        );
+    }
+
+    #[test]
+    fn test_variable_shadowing_in_nested_scopes() {
+        let statement = "
+            var int a = 5;
+            fn int f() {
+                var int a = 10; 
+                a = a + 1;
+            };
+            a = a + 2; 
+        ";
+        let tree = create_syntax_tree(statement);
+        let mut scope_stack = vec![HashMap::new()];
+        let result = type_check(&tree, &mut scope_stack);
+        assert!(
+            result.is_ok(),
+            "Variable shadowing in nested scopes should be allowed"
+        );
+    }
+
+    #[test]
+    fn test_assign_function_to_variable() {
+        let statement = "
+            fn int add(int a, int b) {
+                return a + b;
+            };
+            var int result = add(3,3); 
+        ";
+        let tree = create_syntax_tree(statement);
+        let mut scope_stack = vec![HashMap::new()];
+        let result = type_check(&tree, &mut scope_stack);
+        assert!(
+            result.is_ok(),
+            "Assigning a function to a variable should not be allowed"
+        );
+    }
+
+    #[test]
+    fn test_return_mismatched_type_from_function() {
+        let statement = "
+            fn int add(int a, int b) {
+                return a + 0.5;
+            };
+        ";
+        let tree = create_syntax_tree(statement);
+        let mut scope_stack = vec![HashMap::new()];
+        let result = type_check(&tree, &mut scope_stack);
+        assert!(
+            result.is_err(),
+            "Returning a mismatched type from a function should not be allowed"
+        );
+    }
+
+    #[test]
+    fn test_function_call_with_too_few_arguments() {
+        let statement = "
+            fn int add(int a, int b) {
+                return a + b;
+            };
+            var int result = add(3);
+        ";
+        let tree = create_syntax_tree(statement);
+        let mut scope_stack = vec![HashMap::new()];
+        let result = type_check(&tree, &mut scope_stack);
+        assert!(
+            result.is_err(),
+            "Calling a function with too few arguments should not be allowed"
+        );
+    }
+
+    #[test]
+    fn test_function_call_with_too_many_arguments() {
+        let statement = "
+            fn int add(int a, int b) {
+                return a + b;
+            };
+            var int result = add(3, 4, 5);
+        ";
+        let tree = create_syntax_tree(statement);
+        let mut scope_stack = vec![HashMap::new()];
+        let result = type_check(&tree, &mut scope_stack);
+        assert!(
+            result.is_err(),
+            "Calling a function with too many arguments should not be allowed"
+        );
+    }
+
+    /*
 
     //Legal Explicit type casting
 
@@ -832,5 +1099,5 @@ mod tests {
         let result = type_check(&tree);
         assert!(result.is_err(), "Cannot change value of const!")
     }
+     */
 }
-*/
