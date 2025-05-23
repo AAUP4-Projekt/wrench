@@ -173,7 +173,7 @@ fn parse_string(lex: &mut logos::Lexer<Token>) -> String {
     content[1..content.len() - 1].to_string() // Strip the quotes
 }
 
-//Unit tests for lexer
+//Unit tests for lexer - HAPPY PATH
 #[cfg(test)]
 mod tests {
     use super::*; //this is for importing names from outer scope
@@ -299,5 +299,43 @@ mod tests {
         assert_eq!(lexer.next(), Some(Err(())));
         assert_eq!(lexer.next(), Some(Err(())));
         assert_eq!(lexer.next(), Some(Err(())));
+    }
+
+    //Tests for edge cases
+
+    #[test]
+    #[should_panic]
+    fn overflow_for_i32() {
+        let mut lexer = Token::lexer("8888888888888888888888999999999999999999999999999999999");
+        lexer.next();
+    }
+
+    #[test]
+    fn keyword_prefix() {
+        let mut lexer = Token::lexer("varMyvariable doubleMyfloat stringMystring");
+        assert_eq!(
+            lexer.next(),
+            Some(Ok(Token::Identifier("varMyvariable".to_string())))
+        );
+        assert_eq!(
+            lexer.next(),
+            Some(Ok(Token::Identifier("doubleMyfloat".to_string())))
+        );
+        assert_eq!(
+            lexer.next(),
+            Some(Ok(Token::Identifier("stringMystring".to_string())))
+        );
+    }
+
+    #[test]
+    fn invalid_identifier() {
+        let mut lexer = Token::lexer("£myvar = 3");
+        assert_eq!(lexer.next(), Some(Err(())));
+        assert_eq!(
+            lexer.next(),
+            Some(Ok(Token::Identifier("myvar".to_string())))
+        );
+        assert_eq!(lexer.next(), Some(Ok(Token::AssignmentOperator)));
+        assert_eq!(lexer.next(), Some(Ok(Token::Integer(3))));
     }
 }
