@@ -84,7 +84,7 @@ impl Table {
 
     pub fn get_row(&self, index: usize) -> Row {
         if index < self.data.len() {
-           self.data[index].clone()
+            self.data[index].clone()
         } else {
             panic!("Index out of bounds for table");
         }

@@ -355,11 +355,8 @@ pub fn evaluate_expression(
                             panic!("Interpretation error: Index must be a integer")
                         }
                     };
-                    return ExpressionValue::Row(table
-                        .borrow()
-                        .get_row(int_index)
-                        .clone());
-                    }
+                    return ExpressionValue::Row(table.borrow().get_row(int_index).clone());
+                }
                 _ => {
                     panic!("Interpretation error: Indexing can only be applied to arrays")
                 }

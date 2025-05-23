@@ -164,7 +164,7 @@ pub fn type_check(
                         Parameter::Parameter(param_type, param_name) => {
                             if *param_type != typed_iterable.expr_type {
                                 return Err(format!(
-                                    "Type mismatch in for-loop: expected {:?}, found {:?} for iterator '{}'",
+                                    "Row Type mismatch in for-loop: expected {:?}, found {:?} for iterator '{}'",
                                     param_type, typed_iterable.expr_type, param_name
                                 ));
                             }
@@ -629,13 +629,23 @@ fn infer_type(
                         ));
                     }
 
+                    // Convert the return type to a table type if possible
+                    let coerced_return_type = match &**return_type {
+                        TypeConstruct::Row(row_type) => {
+                            let row_type = Box::new(row_type);
+                            TypeConstruct::Table((*row_type).clone())
+                        }
+                        TypeConstruct::Table(_) => *return_type.clone(),
+                        _ => *return_type.clone(),
+                    };
+
                     Ok(TypedExpr {
                         expr: Expr::Pipe(
                             Box::new(left_typed.expr),
                             pipe_name.clone(),
                             args.clone(),
                         ),
-                        expr_type: *return_type.clone(),
+                        expr_type: coerced_return_type,
                     })
                 } else {
                     Err(format!("'{}' is not a valid pipe function", pipe_name))
@@ -682,7 +692,7 @@ fn infer_type(
                         let typed_expr = infer_type(expr, scope_stack)?;
                         if *param_type != typed_expr.expr_type {
                             return Err(format!(
-                                "Type mismatch: expected {:?}, found {:?} for column '{}'",
+                                "Row Type mismatch: expected {:?}, found {:?} for column '{}'",
                                 param_type, typed_expr.expr_type, param_name
                             ));
                         }
