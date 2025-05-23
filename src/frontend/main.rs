@@ -32,34 +32,35 @@ fn parse(tokens: Vec<(usize, Token, usize)>) -> Statement {
     let parser = grammar::ProgramParser::new();
     match parser.parse(tokens) {
         Ok(program) => program,
-        Err(e) => {
-            match e {
-                ParseError::InvalidToken { location } => {
-                    eprintln!("Invalid token at position {}", location);
-                }
-                ParseError::UnrecognizedToken { token, expected } => {
-                    let (start, token, end) = token;
-                    eprintln!(
-                        "Unrecognized token {:?} at position {}-{}. Expected one of: {:?}",
-                        token, start, end, expected
-                    );
-                }
-                ParseError::ExtraToken { token } => {
-                    let (start, token, end) = token;
-                    eprintln!("Extra token {:?} at position {}-{}", token, start, end);
-                }
-                ParseError::User { error } => {
-                    eprintln!("Custom error: {}", error);
-                }
-                ParseError::UnrecognizedEof { location, expected } => {
-                    eprintln!(
+        Err(e) => match e {
+            ParseError::InvalidToken { location } => {
+                panic!("Invalid token at position {}", location);
+            }
+            ParseError::UnrecognizedToken { token, expected } => {
+                let (start, token, end) = token;
+                panic!(
+                    "Unrecognized token {:?} at position {}-{}. Expected one of: {:?}",
+                    token, start, end, expected
+                );
+            }
+            ParseError::ExtraToken { token } => {
+                let (start, token, end) = token;
+                panic!("Extra token {:?} at position {}-{}", token, start, end);
+            }
+            ParseError::User { error } => {
+                panic!("Custom error: {}", error);
+            }
+            ParseError::UnrecognizedEof { location, expected } => {
+                if expected.contains(&"\";\"".to_string()) {
+                    panic!("Parse error : Missing semicolon at the end of the declaration!")
+                } else {
+                    panic!(
                         "Unrecognized EOF at position {}. Expected one of: {:?}",
                         location, expected
                     );
                 }
             }
-            panic!();
-        }
+        },
     }
 }
 
@@ -299,6 +300,96 @@ mod tests {
         let actual_ast = create_syntax_tree("while (true) { x = 1; }");
 
         assert_eq!(actual_ast, expected_ast);
+    }
+
+    //Edge cases
+    #[test]
+    #[should_panic(expected = "Unrecognized token Closeparan")]
+    fn unmatched_paran() {
+        create_syntax_tree("100 + (2 * 3));");
+    }
+
+    #[test]
+    #[should_panic(expected = "Unrecognized token")]
+    fn unmatched_paran2() {
+        create_syntax_tree("100 + (2 * 3;");
+    }
+
+    #[test]
+    #[should_panic(expected = "Parse error : Missing semicolon at the end of the declaration!")]
+    fn missing_semicolon() {
+        create_syntax_tree("var int x = 2");
+    }
+
+    #[test]
+    #[should_panic]
+    fn invalid_identifiername() {
+        create_syntax_tree("var ?myname = \"Isabella\""); //Illegal ident
+    }
+
+    #[test]
+    #[should_panic]
+    fn invalid_coma() {
+        create_syntax_tree("print(100, 800, )"); //Illegal comma
+    }
+    #[test]
+    #[should_panic]
+    fn invalid_questionmark() {
+        create_syntax_tree("print(100, 800? )"); //Illegal symbol
+    }
+
+    #[test]
+    #[should_panic]
+    fn nobody_function_declr() {
+        create_syntax_tree("fn double dummy(double y);"); //Function has no body
+    }
+
+    #[test]
+    #[should_panic]
+    fn invalid_expr() {
+        create_syntax_tree("11 + ??"); //Invalid operation.
+    }
+
+    #[test]
+    #[should_panic]
+    fn invalid_array_index() {
+        create_syntax_tree("arr[0;");
+    }
+
+    #[test]
+    #[should_panic]
+    fn invalid_pipe_fnname() {
+        create_syntax_tree("data pipe (0, 1); "); //Missing function name for pipe
+    }
+
+    #[test]
+    #[should_panic]
+    fn invalid_operation() {
+        create_syntax_tree("1 ++ 2;"); //What is ++?
+    }
+
+    #[test]
+    #[should_panic]
+    fn invalid_row_decl() {
+        create_syntax_tree("row(int age, string name);"); //Remember: we declare rows like row(int age = 5)
+    }
+
+    #[test]
+    #[should_panic]
+    fn invalid_table_decl() {
+        create_syntax_tree("table(age, string name);"); //Missing the age type!
+    }
+
+    #[test]
+    #[should_panic]
+    fn no_statement() {
+        create_syntax_tree(";"); //Empty statement should not be allowed
+    }
+
+    #[test]
+    #[should_panic]
+    fn callingfunction_incorrectly() {
+        create_syntax_tree("myfunction(name age)"); //Dont forget commas between args
     }
 
     /*
