@@ -159,9 +159,6 @@ pub fn evaluate_pipes(
         }
         PipeFunction::Print => {
             table = Table::new(HashMap::new());
-            for row in rx.iter() {
-                table.add_row(row.clone());
-            }
         }
     }
 
