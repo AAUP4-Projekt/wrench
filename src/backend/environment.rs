@@ -100,11 +100,15 @@ pub fn env_get(env: &[Vec<EnvironmentCell>], name: &str) -> EnvironmentCell {
     for scope in env.iter().rev() {
         for declaration in scope.iter() {
             match declaration {
-                EnvironmentCell::Variable(var_name, _) => if var_name == name {
-                    return declaration.clone();
+                EnvironmentCell::Variable(var_name, _) => {
+                    if var_name == name {
+                        return declaration.clone();
+                    }
                 }
-                EnvironmentCell::Function(function) => if function.name == name {
-                    return declaration.clone();
+                EnvironmentCell::Function(function) => {
+                    if function.name == name {
+                        return declaration.clone();
+                    }
                 }
             }
         }

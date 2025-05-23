@@ -193,11 +193,7 @@ fn evaluate_declaration(declaration: Declaration, env: &mut Vec<Vec<EnvironmentC
             env_add(
                 env,
                 EnvironmentCell::Function(WrenchFunction::new(
-                    func_type,
-                    func_name,
-                    parameters,
-                    body,
-                    closure,
+                    func_type, func_name, parameters, body, closure,
                 )),
             );
         }
