@@ -348,6 +348,18 @@ pub fn evaluate_expression(
                         panic!("Interpretation error: Index out of bounds");
                     }
                 }
+                ExpressionValue::Table(table) => {
+                    let int_index = match evaluate_expression(*index, env) {
+                        ExpressionValue::Number(n) => n as usize,
+                        _ => {
+                            panic!("Interpretation error: Index must be a integer")
+                        }
+                    };
+                    return ExpressionValue::Row(table
+                        .borrow()
+                        .get_row(int_index)
+                        .clone());
+                    }
                 _ => {
                     panic!("Interpretation error: Indexing can only be applied to arrays")
                 }

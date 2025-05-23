@@ -82,6 +82,14 @@ impl Table {
         self.data.push(row);
     }
 
+    pub fn get_row(&self, index: usize) -> Row {
+        if index < self.data.len() {
+           self.data[index].clone()
+        } else {
+            panic!("Index out of bounds for table");
+        }
+    }
+
     pub fn get_structure(&self) -> &HashMap<String, TableCellType> {
         &self.structure
     }
