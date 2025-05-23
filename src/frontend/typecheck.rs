@@ -620,7 +620,7 @@ fn infer_type(
                                     pipe_name.clone(),
                                     args.clone(),
                                 ),
-                                expr_type: left_typed.expr_type.clone(),
+                                expr_type: TypeConstruct::Table(vec![]), // Return a empty table type
                             });
                         } else {
                             return Err(format!(
