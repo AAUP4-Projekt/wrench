@@ -1,0 +1,14 @@
+fn row(int new_id) double_id(row(int id) t){
+    return row(int new_id = t.id * 2);
+};
+
+fn table(int sum) sum(table(int new_id) t){
+    for(row(int new_id) r in t){
+        
+    }
+    return row(int sum = 4);
+};
+
+var table(int sum) t = async_import("programs/data/stock.csv", table(int id))
+    pipe double_id()
+    pipe sum();
