@@ -612,22 +612,14 @@ fn infer_type(
                             }
                         }
 
-                        // Check if the left side is a table when using print
-                        if let TypeConstruct::Table(_) = left_typed.expr_type {
-                            return Ok(TypedExpr {
-                                expr: Expr::Pipe(
-                                    Box::new(left_typed.expr),
-                                    pipe_name.clone(),
-                                    args.clone(),
-                                ),
-                                expr_type: TypeConstruct::Table(vec![]), // Return a empty table type
-                            });
-                        } else {
-                            return Err(format!(
-                                "Pipe function 'print' must be used with a table. Got: {:?}",
-                                left_typed.expr_type
-                            ));
-                        }
+                        return Ok(TypedExpr {
+                            expr: Expr::Pipe(
+                                Box::new(left_typed.expr),
+                                pipe_name.clone(),
+                                args.clone(),
+                            ),
+                            expr_type: TypeConstruct::Table(vec![]), // Return a empty table type
+                        });
                     }
 
                     if !allowed {
