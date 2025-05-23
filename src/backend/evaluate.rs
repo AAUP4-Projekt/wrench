@@ -16,7 +16,7 @@ use super::{
 };
 
 // Represents the value of an evaluated expression in the Wrench language
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ExpressionValue {
     Number(i32),
     Double(f64),
@@ -29,7 +29,7 @@ pub enum ExpressionValue {
 }
 
 //Represents the value of a statement in the Wrench language. Either the statement returns something or nothing
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum StatementValue {
     None,
     Return(ExpressionValue),
@@ -515,4 +515,219 @@ fn evaluate_operation(
         "Interpretation error: Unsupported operation for {:?} {:?} {:?}",
         &left, &operator, &right,
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*; //this is for importing names from outer scope
+
+    //Careful! We return Result<Token
+    #[test]
+    fn test_plus() {
+        let left = ExpressionValue::Number(1);
+        let right = ExpressionValue::Number(2);
+        let operator = Operator::Addition;
+        let result = evaluate_operation(left, operator, right);
+        assert_eq!(result, ExpressionValue::Number(3));
+        assert_ne!(result, ExpressionValue::Number(4));
+    }
+
+    #[test]
+    fn test_minus() {
+        let left = ExpressionValue::Number(5);
+        let right = ExpressionValue::Number(2);
+        let operator = Operator::Subtraction;
+        let result = evaluate_operation(left, operator, right);
+        assert_eq!(result, ExpressionValue::Number(3));
+        assert_ne!(result, ExpressionValue::Number(4));
+    }
+
+    #[test]
+    fn test_muliplication() {
+        let left = ExpressionValue::Number(5);
+        let right = ExpressionValue::Number(2);
+        let operator = Operator::Multiplication;
+        let result = evaluate_operation(left, operator, right);
+        assert_eq!(result, ExpressionValue::Number(10));
+        assert_ne!(result, ExpressionValue::Number(4));
+    }
+
+    #[test]
+    fn test_division() {
+        let left = ExpressionValue::Number(10);
+        let right = ExpressionValue::Number(2);
+        let operator = Operator::Division;
+        let result = evaluate_operation(left, operator, right);
+        assert_eq!(result, ExpressionValue::Number(5));
+        assert_ne!(result, ExpressionValue::Number(4));
+    }
+
+    #[test]
+    fn test_modulo() {
+        let left = ExpressionValue::Number(10);
+        let right = ExpressionValue::Number(3);
+        let operator = Operator::Modulo;
+        let result = evaluate_operation(left, operator, right);
+        assert_eq!(result, ExpressionValue::Number(1));
+        assert_ne!(result, ExpressionValue::Number(4));
+    }
+
+    #[test]
+    fn test_exponent() {
+        let left = ExpressionValue::Number(2);
+        let right = ExpressionValue::Number(3);
+        let operator = Operator::Exponent;
+        let result = evaluate_operation(left, operator, right);
+        assert_eq!(result, ExpressionValue::Number(8));
+        assert_ne!(result, ExpressionValue::Number(4));
+    }
+
+    #[test]
+    fn test_less_than() {
+        let left = ExpressionValue::Number(1);
+        let right = ExpressionValue::Number(2);
+        let operator = Operator::LessThan;
+        let result = evaluate_operation(left, operator, right);
+        assert_eq!(result, ExpressionValue::Bool(true));
+        assert_ne!(result, ExpressionValue::Bool(false));
+    }
+
+    #[test]
+    fn test_if_return() {
+        let mut env = env_new();
+        env_expand_scope(&mut env);
+        let statement = Statement::If(
+            Box::new(Expr::Bool(true)),
+            Box::new(Statement::Return(Box::new(Expr::Number(1)))),
+            Box::new(Statement::Return(Box::new(Expr::Number(2)))),
+        );
+        let result = evaluate_statement(statement, &mut env);
+        assert_eq!(result, StatementValue::Return(ExpressionValue::Number(1)));
+    }
+
+    #[test]
+    fn test_while_loop() {
+        let mut env = env_new();
+        env_expand_scope(&mut env);
+        let statement = Statement::While(
+            Box::new(Expr::Bool(true)),
+            Box::new(Statement::Return(Box::new(Expr::Number(1)))),
+        );
+        let result = evaluate_statement(statement, &mut env);
+        assert_eq!(result, StatementValue::Return(ExpressionValue::Number(1)));
+    }
+
+    #[test]
+    fn test_equals_operator_number() {
+        let left = ExpressionValue::Number(5);
+        let right = ExpressionValue::Number(5);
+        let operator = Operator::Equals;
+        let result = evaluate_operation(left, operator, right);
+        assert_eq!(result, ExpressionValue::Bool(true));
+    }
+
+    #[test]
+    fn test_equals_operator_string() {
+        let left = ExpressionValue::String("abc".to_string());
+        let right = ExpressionValue::String("abc".to_string());
+        let operator = Operator::Equals;
+        let result = evaluate_operation(left, operator, right);
+        assert_eq!(result, ExpressionValue::Bool(true));
+    }
+
+    #[test]
+    fn test_or_operator() {
+        let left = ExpressionValue::Bool(true);
+        let right = ExpressionValue::Bool(false);
+        let operator = Operator::Or;
+        let result = evaluate_operation(left, operator, right);
+        assert_eq!(result, ExpressionValue::Bool(true));
+    }
+
+    #[test]
+    fn test_less_than_or_equal_operator() {
+        let left = ExpressionValue::Number(2);
+        let right = ExpressionValue::Number(2);
+        let operator = Operator::LessThanOrEqual;
+        let result = evaluate_operation(left, operator, right);
+        assert_eq!(result, ExpressionValue::Bool(true));
+    }
+
+    #[test]
+    fn test_addition_double() {
+        let left = ExpressionValue::Double(1.5);
+        let right = ExpressionValue::Double(2.5);
+        let operator = Operator::Addition;
+        let result = evaluate_operation(left, operator, right);
+        assert_eq!(result, ExpressionValue::Double(4.0));
+    }
+
+    #[test]
+    fn test_string_concatenation() {
+        let left = ExpressionValue::String("foo".to_string());
+        let right = ExpressionValue::String("bar".to_string());
+        let operator = Operator::Addition;
+        let result = evaluate_operation(left, operator, right);
+        assert_eq!(result, ExpressionValue::String("foobar".to_string()));
+    }
+
+    #[test]
+    fn test_not_operator() {
+        let mut env = env_new();
+        env_expand_scope(&mut env);
+        let expr = Expr::Not(Box::new(Expr::Bool(false)));
+        let result = evaluate_expression(expr, &mut env);
+        assert_eq!(result, ExpressionValue::Bool(true));
+    }
+
+    #[test]
+    fn test_array_indexing() {
+        let mut env = env_new();
+        env_expand_scope(&mut env);
+        let expr = Expr::Indexing(
+            Box::new(Expr::Array(vec![
+                Box::new(Expr::Number(10)),
+                Box::new(Expr::Number(20)),
+            ])),
+            Box::new(Expr::Number(1)),
+        );
+        let result = evaluate_expression(expr, &mut env);
+        assert_eq!(result, ExpressionValue::Number(20));
+    }
+
+    #[test]
+    fn test_variable_assignment_and_lookup() {
+        let mut env = env_new();
+        env_expand_scope(&mut env);
+        let statement = Statement::Declaration(Declaration::Variable(
+            TypeConstruct::Int,
+            "x".to_string(),
+            Box::new(Expr::Number(42)),
+        ));
+        evaluate_statement(statement, &mut env);
+        let value = env_get(&env, "x");
+        if let EnvironmentCell::Variable(_, v) = value {
+            assert_eq!(v, ExpressionValue::Number(42));
+        } else {
+            self::panic!("Expected variable");
+        }
+    }
+
+    #[test]
+    fn test_function_declaration_and_call() {
+        let mut env = env_new();
+        env_expand_scope(&mut env);
+        let func_decl = Declaration::Function(
+            TypeConstruct::Int,
+            "f".to_string(),
+            vec![Parameter::Parameter(TypeConstruct::Int, "a".to_string())],
+            Box::new(Statement::Return(Box::new(Expr::Identifier(
+                "a".to_string(),
+            )))),
+        );
+        evaluate_declaration(func_decl, &mut env);
+        let call_expr = Expr::FunctionCall("f".to_string(), vec![Box::new(Expr::Number(99))]);
+        let result = evaluate_expression(call_expr, &mut env);
+        assert_eq!(result, ExpressionValue::Number(99));
+    }
 }

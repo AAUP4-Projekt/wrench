@@ -3,7 +3,6 @@ use core::panic;
 use crate::frontend::ast::{Parameter, Statement, TypeConstruct};
 
 use super::evaluate::ExpressionValue;
-
 /*
  * This file deals with creating and managing the runtime environment
  */
@@ -161,4 +160,130 @@ pub fn env_expand_scope(env: &mut Vec<Vec<EnvironmentCell>>) {
 
 pub fn env_shrink_scope(env: &mut Vec<Vec<EnvironmentCell>>) {
     env.pop();
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn dummy_function(name: &str) -> WrenchFunction {
+        WrenchFunction::new(
+            TypeConstruct::Int,
+            name.to_string(),
+            vec![],
+            Box::new(Statement::Skip),
+            vec![],
+        )
+    }
+
+    fn dummy_variable(name: &str, value: i32) -> EnvironmentCell {
+        EnvironmentCell::Variable(name.to_string(), ExpressionValue::Number(value))
+    }
+
+    #[test]
+    fn test_env_new_and_expand_shrink_scope() {
+        let mut env = env_new();
+        assert_eq!(env.len(), 0);
+        env_expand_scope(&mut env);
+        assert_eq!(env.len(), 1);
+        env_shrink_scope(&mut env);
+        assert_eq!(env.len(), 0);
+    }
+
+    #[test]
+    fn test_env_add_and_get_variable() {
+        let mut env = env_new();
+        env_expand_scope(&mut env);
+        env_add(&mut env, dummy_variable("x", 42));
+        let cell = env_get(&env, "x");
+        match cell {
+            EnvironmentCell::Variable(ref name, ExpressionValue::Number(val)) => {
+                assert_eq!(name, "x");
+                assert_eq!(val, 42);
+            }
+            _ => self::panic!("Expected variable"),
+        }
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_env_add_duplicate_panics() {
+        let mut env = env_new();
+        env_expand_scope(&mut env);
+        env_add(&mut env, dummy_variable("x", 1));
+        env_add(&mut env, dummy_variable("x", 2)); // Should panic
+    }
+
+    #[test]
+    fn test_env_add_and_get_function() {
+        let mut env = env_new();
+        env_expand_scope(&mut env);
+        let func = dummy_function("foo");
+        env_add(&mut env, EnvironmentCell::Function(func.clone()));
+        let cell = env_get(&env, "foo");
+        match cell {
+            EnvironmentCell::Function(f) => {
+                assert_eq!(f.name, "foo");
+            }
+            _ => self::panic!("Expected function"),
+        }
+    }
+
+    #[test]
+    fn test_env_update_variable() {
+        let mut env = env_new();
+        env_expand_scope(&mut env);
+        env_add(&mut env, dummy_variable("x", 10));
+        env_update(&mut env, "x", ExpressionValue::Number(99));
+        let cell = env_get(&env, "x");
+        match cell {
+            EnvironmentCell::Variable(_, ExpressionValue::Number(val)) => assert_eq!(val, 99),
+            _ => self::panic!("Expected variable"),
+        }
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_env_update_nonexistent_panics() {
+        let mut env = env_new();
+        env_expand_scope(&mut env);
+        env_update(&mut env, "y", ExpressionValue::Number(1)); // Should panic
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_env_update_function_panics() {
+        let mut env = env_new();
+        env_expand_scope(&mut env);
+        let func = dummy_function("foo");
+        env_add(&mut env, EnvironmentCell::Function(func));
+        env_update(&mut env, "foo", ExpressionValue::Number(1)); // Should panic
+    }
+
+    #[test]
+    fn test_env_get_optional() {
+        let mut env = env_new();
+        env_expand_scope(&mut env);
+        env_add(&mut env, dummy_variable("x", 5));
+        assert!(env_get_optional(&mut env, "x").is_some());
+        assert!(env_get_optional(&mut env, "y").is_none());
+    }
+
+    #[test]
+    fn test_env_to_closure_and_get_closure_as_env() {
+        let func1 = dummy_function("f1");
+        let func2 = dummy_function("f2");
+        let closure = vec![func1.clone(), func2.clone()];
+        let wrench_func = WrenchFunction::new(
+            TypeConstruct::Int,
+            "main".to_string(),
+            vec![],
+            Box::new(Statement::Skip),
+            closure.clone(),
+        );
+        let env = wrench_func.get_closure_as_env();
+        let closure_from_env = env_to_closure(&env);
+        assert_eq!(closure_from_env.len(), 2);
+        assert!(closure_from_env.iter().any(|f| f.name == "f1"));
+        assert!(closure_from_env.iter().any(|f| f.name == "f2"));
+    }
 }
