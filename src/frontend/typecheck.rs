@@ -785,73 +785,184 @@ fn check_and_cast_type(
     }
 }
 
-/*
 //Unit-integration tests:
 #[cfg(test)]
 mod tests {
-    use std::result;
 
     use super::*;
     use crate::frontend::main::create_syntax_tree;
 
     //type casting unit tests
     #[test]
-    fn test_legal_int_plus_double_implicit() {
-        let aritmoperation = "var int a = 5; var double b = 4.5; a + b;";
-        let tree = create_syntax_tree(aritmoperation);
-        let result = type_check(&tree);
-        assert!(result.is_ok(), "int + double is allowed");
-    }
-    #[test]
-    fn test_legal_double_plus_int_implicit() {
-        let aritmoperation = "var double a = 3.5; var int b = 4; a + b;";
-        let tree = create_syntax_tree(aritmoperation);
-        let result = type_check(&tree);
-        assert!(result.is_ok(), "double + int is allowed");
-    }
-    #[test]
-    fn test_legal_int_minus_double_implicit() {
-        let aritmoperation = "var int a = 5; var double b = 4.5; a - b;";
-        let tree = create_syntax_tree(aritmoperation);
-        let result = type_check(&tree);
-        assert!(result.is_ok(), "int - double is allowed");
-    }
-    #[test]
-    fn test_legal_double_minus_int_implicit() {
-        let aritmoperation = "var double a = 3.5; var int b = 4; a - b;";
-        let tree = create_syntax_tree(aritmoperation);
-        let result = type_check(&tree);
-        assert!(result.is_ok(), "double - int is allowed");
-    }
-    #[test]
-    fn test_legal_int_times_double_implicit() {
-        let aritmoperation = "var int a = 5; var double b = 4.5; a * b;";
-        let tree = create_syntax_tree(aritmoperation);
-        let result = type_check(&tree);
-        assert!(result.is_ok(), "int * double is allowed");
-    }
-    #[test]
-    fn test_legal_double_times_int_implicit() {
-        let aritmoperation = "var double a = 3.5; var int b = 4; a * b;";
-        let tree = create_syntax_tree(aritmoperation);
-        let result = type_check(&tree);
-        assert!(result.is_ok(), "double * int is allowed");
-    }
-    #[test]
-    fn test_legal_int_slash_double_implicit() {
-        let aritmoperation = "var int a = 5; var double b = 4.5; a / b;";
-        let tree = create_syntax_tree(aritmoperation);
-        let result = type_check(&tree);
-        assert!(result.is_ok(), "int / double is allowed");
+    fn test_illegal_double_to_int_shallowing() {
+        let statement = "var int a = 5; var double b = 4.5; a = b;";
+        let tree = create_syntax_tree(statement);
+        let mut scope_stack = vec![HashMap::new()];
+        let result = type_check(&tree, &mut scope_stack);
+        assert!(
+            result.is_err(),
+            "double to int shallow casting is not allowed"
+        );
     }
 
     #[test]
-    fn test_legal_double_slash_int_implicit() {
-        let aritmoperation = "var double a = 3.5; var int b = 4; a / b;";
-        let tree = create_syntax_tree(aritmoperation);
-        let result = type_check(&tree);
-        assert!(result.is_ok(), "double / int is allowed");
+    fn test_legal_double_plus_int_implicit() {
+        let statement =
+            "var double a = 3.5; var int b = 4; var double c = b; var double result = a + c;";
+        let tree = create_syntax_tree(statement);
+        let mut scope_stack = vec![HashMap::new()];
+        let result = type_check(&tree, &mut scope_stack);
+        assert!(
+            result.is_ok(),
+            "double + int is allowed and results in a double"
+        );
     }
+
+    #[test]
+    fn test_illegal_operation_between_incompatible_types() {
+        let statement = "var string a = \"hello\"; var int b = 5; var string result = a + b;";
+        let tree = create_syntax_tree(statement);
+        let mut scope_stack = vec![HashMap::new()];
+        let result = type_check(&tree, &mut scope_stack);
+        assert!(
+            result.is_err(),
+            "Operations between incompatible types (string + int) is not allowed"
+        );
+    }
+
+    #[test]
+    fn test_illegal_scope_in_with_functions() {
+        let statement = "var int a = 5; fn int f() { var int b = 10; return a + b; };";
+        let tree = create_syntax_tree(statement);
+        let mut scope_stack = vec![HashMap::new()];
+        let result = type_check(&tree, &mut scope_stack);
+        assert!(
+            result.is_err(),
+            "reaching out of scope with functions is not allowed"
+        );
+    }
+
+    #[test]
+    fn test_function_call_with_incorrect_argument_types() {
+        let statement = "
+            fn int add(int a, int b) {
+                return a + b;
+            };
+            var double result = add(3.5, 4); 
+        ";
+        let tree = create_syntax_tree(statement);
+        let mut scope_stack = vec![HashMap::new()];
+        let result = type_check(&tree, &mut scope_stack);
+        assert!(
+            result.is_err(),
+            "Function calls with incorrect argument types should not be allowed"
+        );
+    }
+
+    #[test]
+    fn test_function_call_with_correct_argument_types() {
+        let statement = "
+            fn int add(int a, int b) {
+                return a + b;
+            };
+            var int result = add(3, 4); 
+        ";
+        let tree = create_syntax_tree(statement);
+        let mut scope_stack = vec![HashMap::new()];
+        let result = type_check(&tree, &mut scope_stack);
+        assert!(
+            result.is_ok(),
+            "Function calls with correct argument types should be allowed"
+        );
+    }
+
+    #[test]
+    fn test_variable_shadowing_in_nested_scopes() {
+        let statement = "
+            var int a = 5;
+            fn int f() {
+                var int a = 10; 
+                a = a + 1;
+            };
+            a = a + 2; 
+        ";
+        let tree = create_syntax_tree(statement);
+        let mut scope_stack = vec![HashMap::new()];
+        let result = type_check(&tree, &mut scope_stack);
+        assert!(
+            result.is_ok(),
+            "Variable shadowing in nested scopes should be allowed"
+        );
+    }
+
+    #[test]
+    fn test_assign_function_to_variable() {
+        let statement = "
+            fn int add(int a, int b) {
+                return a + b;
+            };
+            var int result = add(3,3); 
+        ";
+        let tree = create_syntax_tree(statement);
+        let mut scope_stack = vec![HashMap::new()];
+        let result = type_check(&tree, &mut scope_stack);
+        assert!(
+            result.is_ok(),
+            "Assigning a function to a variable should not be allowed"
+        );
+    }
+
+    #[test]
+    fn test_return_mismatched_type_from_function() {
+        let statement = "
+            fn int add(int a, int b) {
+                return a + 0.5;
+            };
+        ";
+        let tree = create_syntax_tree(statement);
+        let mut scope_stack = vec![HashMap::new()];
+        let result = type_check(&tree, &mut scope_stack);
+        assert!(
+            result.is_err(),
+            "Returning a mismatched type from a function should not be allowed"
+        );
+    }
+
+    #[test]
+    fn test_function_call_with_too_few_arguments() {
+        let statement = "
+            fn int add(int a, int b) {
+                return a + b;
+            };
+            var int result = add(3);
+        ";
+        let tree = create_syntax_tree(statement);
+        let mut scope_stack = vec![HashMap::new()];
+        let result = type_check(&tree, &mut scope_stack);
+        assert!(
+            result.is_err(),
+            "Calling a function with too few arguments should not be allowed"
+        );
+    }
+
+    #[test]
+    fn test_function_call_with_too_many_arguments() {
+        let statement = "
+            fn int add(int a, int b) {
+                return a + b;
+            };
+            var int result = add(3, 4, 5);
+        ";
+        let tree = create_syntax_tree(statement);
+        let mut scope_stack = vec![HashMap::new()];
+        let result = type_check(&tree, &mut scope_stack);
+        assert!(
+            result.is_err(),
+            "Calling a function with too many arguments should not be allowed"
+        );
+    }
+
+    /*
 
     //Legal Explicit type casting
 
@@ -988,5 +1099,5 @@ mod tests {
         let result = type_check(&tree);
         assert!(result.is_err(), "Cannot change value of const!")
     }
+     */
 }
-*/
