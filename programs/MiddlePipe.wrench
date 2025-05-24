@@ -1,5 +1,5 @@
 fn row(int id) double_id(row(int id) t){
-    return row(int new_id = t.id * 2);
+    return row(int id = t.id * 2);
 };
 
 fn table(int id) f_sum(table(int id) t){

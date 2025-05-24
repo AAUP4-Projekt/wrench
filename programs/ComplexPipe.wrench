@@ -6,8 +6,14 @@ fn row(int new_id) double_id(row(string name, int id, bool in_stock) t){
     return row(int new_id = t.id * 2);
 };
 
-fn row(int sum) sum(row(int new_id) t){
-    return row(int sum = 4);
+fn table(int sum) sum(table(int new_id) t){
+    var int s = 0;
+    for(row(int new_id) r in t){
+        s = s + r.new_id;
+    }
+    var table(int sum) return_table = table(int sum);
+    table_add_row(return_table, row(int sum = s));
+    return return_table;
 };
 
 async_import("programs/data/stock.csv", table(string name, int id, bool in_stock))
