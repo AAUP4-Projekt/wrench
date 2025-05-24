@@ -120,6 +120,9 @@ pub fn type_check(
                     function_scope_stack.push(param_scope);
 
                     type_check(body, &mut function_scope_stack)?;
+
+                    // Validate return type
+                    validate_return_type(body, return_type, &mut function_scope_stack)?;
                 }
             }
         }
@@ -164,7 +167,7 @@ pub fn type_check(
                         Parameter::Parameter(param_type, param_name) => {
                             if *param_type != typed_iterable.expr_type {
                                 return Err(format!(
-                                    "Row Type mismatch in for-loop: expected {:?}, found {:?} for iterator '{}'",
+                                    "Type mismatch in for-loop: expected {:?}, found {:?} for iterator '{}'",
                                     param_type, typed_iterable.expr_type, param_name
                                 ));
                             }
@@ -576,10 +579,14 @@ fn infer_type(
             // Check if the pipe function is defined
             if let Some(func_type) = lookup_variable(pipe_name, scope_stack) {
                 if let TypeConstruct::Function(return_type, param_types) = &func_type.var_type {
-                    let effective_args: Vec<Expr> = if args.is_empty() && param_types.len() == 1 {
-                        vec![*Box::new(left_typed.expr.clone())]
+                    // Adds the left side as the first argument if the number of arguments is one less than the number of parameters
+                    let effective_args: Vec<Expr> = if args.len() + 1 == param_types.len() {
+                        // If the left side is a pipe, we need to add it as the first argument
+                        let mut new_args = vec![*Box::new(left_typed.expr.clone())];
+                        new_args.extend(args.iter().map(|b| *b.clone()));
+                        new_args
                     } else {
-                        args.iter().map(|b| (*b.clone())).collect()
+                        args.iter().map(|arg| *arg.clone()).collect()
                     };
 
                     // Check if the number of arguments matches
@@ -612,14 +619,22 @@ fn infer_type(
                             }
                         }
 
-                        return Ok(TypedExpr {
-                            expr: Expr::Pipe(
-                                Box::new(left_typed.expr),
-                                pipe_name.clone(),
-                                args.clone(),
-                            ),
-                            expr_type: TypeConstruct::Table(vec![]), // Return a empty table type
-                        });
+                        // Check if the left side is a table when using print
+                        if let TypeConstruct::Table(_) = left_typed.expr_type {
+                            return Ok(TypedExpr {
+                                expr: Expr::Pipe(
+                                    Box::new(left_typed.expr),
+                                    pipe_name.clone(),
+                                    args.clone(),
+                                ),
+                                expr_type: TypeConstruct::Table(vec![]), // Return a empty table type
+                            });
+                        } else {
+                            return Err(format!(
+                                "Pipe function 'print' must be used with a table. Got: {:?}",
+                                left_typed.expr_type
+                            ));
+                        }
                     }
 
                     if !allowed {
@@ -629,23 +644,13 @@ fn infer_type(
                         ));
                     }
 
-                    // Convert the return type to a table type if possible
-                    let coerced_return_type = match &**return_type {
-                        TypeConstruct::Row(row_type) => {
-                            let row_type = Box::new(row_type);
-                            TypeConstruct::Table((*row_type).clone())
-                        }
-                        TypeConstruct::Table(_) => *return_type.clone(),
-                        _ => *return_type.clone(),
-                    };
-
                     Ok(TypedExpr {
                         expr: Expr::Pipe(
                             Box::new(left_typed.expr),
                             pipe_name.clone(),
                             args.clone(),
                         ),
-                        expr_type: coerced_return_type,
+                        expr_type: *return_type.clone(),
                     })
                 } else {
                     Err(format!("'{}' is not a valid pipe function", pipe_name))
@@ -692,7 +697,7 @@ fn infer_type(
                         let typed_expr = infer_type(expr, scope_stack)?;
                         if *param_type != typed_expr.expr_type {
                             return Err(format!(
-                                "Row Type mismatch: expected {:?}, found {:?} for column '{}'",
+                                "Type mismatch: expected {:?}, found {:?} for column '{}'",
                                 param_type, typed_expr.expr_type, param_name
                             ));
                         }
@@ -785,6 +790,37 @@ fn check_and_cast_type(
             expected_type, typed_expr.expr_type
         )),
     }
+}
+
+fn validate_return_type(
+    body: &Statement,
+    expected_return_type: &TypeConstruct,
+    scope_stack: &mut Vec<HashMap<String, VariableInfo>>,
+) -> Result<(), String> {
+    match body {
+        Statement::Return(expr) => {
+            let typed_expr = infer_type(expr, scope_stack)?;
+            if typed_expr.expr_type != *expected_return_type {
+                return Err(format!(
+                    "Return type mismatch: expected {:?}, found {:?}",
+                    expected_return_type, typed_expr.expr_type
+                ));
+            }
+        }
+        Statement::Compound(stmt1, stmt2) => {
+            validate_return_type(stmt1, expected_return_type, scope_stack)?;
+            validate_return_type(stmt2, expected_return_type, scope_stack)?;
+        }
+        Statement::If(_, body, else_body) => {
+            validate_return_type(body, expected_return_type, scope_stack)?;
+            validate_return_type(else_body, expected_return_type, scope_stack)?;
+        }
+        Statement::While(_, body) => {
+            validate_return_type(body, expected_return_type, scope_stack)?;
+        }
+        _ => {}
+    }
+    Ok(())
 }
 
 //Unit-integration tests:
@@ -936,7 +972,7 @@ mod tests {
             fn int add(int a, int b) {
                 return a + b;
             };
-            var int result = add(3);
+            var int result = add(3, 3);
         ";
         let tree = create_syntax_tree(statement);
         let mut scope_stack = vec![HashMap::new()];

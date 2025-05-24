@@ -2,7 +2,8 @@ fn bool filter_even_id(row(int id) r){
     return r.id % 2 == 0;
 };
 
-fn row(int new_id) double_id(row(int id) t){
+fn row(int new_id) double_id(row(int id) t, int test){
+    print(test);
     return row(int new_id = t.id * 2);
 };
 
@@ -18,6 +19,6 @@ fn table(int sum) sum(table(int new_id) t){
 
 async_import("programs/data/stock.csv", table(int id))
     pipe filter_even_id()
-    pipe double_id()
+    pipe double_id(1)
     pipe sum()
     pipe print();
