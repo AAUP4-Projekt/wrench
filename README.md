@@ -10,6 +10,6 @@ Just throw a wrench in it!
 ### Commands
 - Build project ```cargo build```
 - Run project ```cargo run```
-- Test project ```cargo test``
-- Format project (Removes unnessesary white space) ````cargo fmt```
+- Test project ```cargo test```
+- Format project (Removes unnessesary white space) ```cargo fmt```
 - Code quality check (Show warnings where poor code quality) ```cargo clippy```
