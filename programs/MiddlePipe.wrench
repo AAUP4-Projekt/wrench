@@ -1,0 +1,20 @@
+fn row(int id) double_id(row(int id) t){
+    return row(int id = t.id * 2);
+};
+
+fn table(int id) f_sum(table(int id) t){
+    var table(int id) b = table(int id);
+    var int sum = 0;
+    for(row(int id) r in t){
+        sum = r.id + sum;
+    }
+    table_add_row(b, row(int id = sum));
+    return b;
+};
+
+var table(int id) t = async_import("programs/data/stock.csv", table(int id))
+    pipe double_id()
+    pipe f_sum()
+    pipe double_id();
+
+print(t);

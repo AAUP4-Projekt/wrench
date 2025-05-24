@@ -1,11 +1,10 @@
 use std::collections::HashMap;
 
-use csv::Reader;
-
 use super::{
-    environment::ExpressionValue,
+    evaluate::ExpressionValue,
     table::{Row, TableCell, TableCellType},
 };
+use csv::Reader;
 
 /*
  * This file contains the wrench library functions, and helper functions for those
@@ -112,4 +111,72 @@ pub fn wrench_table_add_row(args: Vec<ExpressionValue>) -> ExpressionValue {
 
     table.borrow_mut().add_row(row.clone());
     ExpressionValue::Null
+}
+#[cfg(test)]
+mod tests {
+    use std::{cell::RefCell, rc::Rc};
+
+    use crate::backend::table::Table;
+
+    use super::*;
+
+    #[test]
+    fn test_wrench_print_basic_types() {
+        let args = vec![
+            ExpressionValue::Number(42),
+            ExpressionValue::Double(3.14),
+            ExpressionValue::String("hello".to_string()),
+            ExpressionValue::Bool(true),
+            ExpressionValue::Null,
+        ];
+        // Should not panic
+        let result = wrench_print(args);
+        assert_eq!(result, ExpressionValue::Null);
+    }
+
+    #[test]
+    fn test_wrench_print_array() {
+        let arr = vec![
+            ExpressionValue::Number(1),
+            ExpressionValue::Number(2),
+            ExpressionValue::Number(3),
+        ];
+        let args = vec![ExpressionValue::Array(arr)];
+        let result = wrench_print(args);
+        assert_eq!(result, ExpressionValue::Null);
+    }
+
+    #[test]
+    #[should_panic(expected = "First argument must be a string")]
+    fn test_wrench_import_invalid_first_arg() {
+        let args = vec![ExpressionValue::Number(1), ExpressionValue::Null];
+        wrench_import(args);
+    }
+
+    #[test]
+    #[should_panic(expected = "Second argument must be a table")]
+    fn test_wrench_import_invalid_second_arg() {
+        let args = vec![
+            ExpressionValue::String("file.csv".to_string()),
+            ExpressionValue::Null,
+        ];
+        wrench_import(args);
+    }
+
+    #[test]
+    #[should_panic(expected = "Interpretation error: Expected a table")]
+    fn test_wrench_table_add_row_invalid_table() {
+        let args = vec![ExpressionValue::Null, ExpressionValue::Null];
+        wrench_table_add_row(args);
+    }
+
+    #[test]
+    #[should_panic(expected = "Interpretation error: Expected a row")]
+    fn test_wrench_table_add_row_invalid_row() {
+        let mut structure = HashMap::new();
+        structure.insert("id".to_string(), TableCellType::Int);
+        let table = Rc::new(RefCell::new(Table::new(structure)));
+        let args = vec![ExpressionValue::Table(table), ExpressionValue::Null];
+        wrench_table_add_row(args);
+    }
 }

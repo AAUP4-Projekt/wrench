@@ -1,0 +1,4 @@
+//Program should fail, because csv file doesn't have a column for price
+//Expected error: "CSV file is missing column 'price'"
+var table(int price) t = import("programs/data/stock.csv", table(int price));
+print(t);

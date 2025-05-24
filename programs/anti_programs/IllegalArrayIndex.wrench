@@ -1,0 +1,5 @@
+//Program should fail, because array index is out of bound
+//Expected error: "Interpretation error: Index out of bounds"
+var int[] my_array = [1,2,3,4,5,6];
+print(my_array[0]);
+print(my_array[6]);

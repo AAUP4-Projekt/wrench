@@ -1,26 +1,22 @@
-fn bool filter_even_id(row(string name, int id, bool in_stock) r){
+fn bool filter_even_id(row(int id) r){
     return r.id % 2 == 0;
 };
 
-fn row(int new_id) double_id(row(string name, int id, bool in_stock) t){
+fn row(int new_id) double_id(row(int id) t){
     return row(int new_id = t.id * 2);
 };
 
 fn table(int sum) sum(table(int new_id) t){
-    var int result = 0;
-    for(row(int sum) r in t){
-        result = result + r.new_id;
+    var int s = 0;
+    for(row(int new_id) r in t){
+        s = s + r.new_id;
     }
-    var table(int sum) table_result = table(int sum);
-    table_add_row(table_result, row(int sum = result));
-    return table_result;
+    var table(int sum) return_table = table(int sum);
+    table_add_row(return_table, row(int sum = s));
+    return return_table;
 };
 
-
-//var table(int a) b = table_add_row(table(int a), row(int a = 3));
-//print(b);
-
-var table(int before, int after) t = async_import("programs/data/stock.csv", table(string name, int id, bool in_stock))
+async_import("programs/data/stock.csv", table(int id))
     pipe filter_even_id()
     pipe double_id()
     pipe sum()

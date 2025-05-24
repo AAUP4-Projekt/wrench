@@ -1,0 +1,13 @@
+//Type checker should fail this program, because var text is assigned to outside scope
+//Expected error: "Type checking failed: Undefined variable 'text'"
+var int x = 3;
+var string text = "hej";
+
+fn string testFunc(string a) {
+    text = "test";
+    print(text);
+    return a;
+};
+
+
+

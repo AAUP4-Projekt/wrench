@@ -30,7 +30,7 @@ fn table(double total) reduce_sum(table(double valone, double valtwo, double val
     for (row(double valone, double valtwo, double valthree) r in t) {
         sum = sum + r.valone + r.valtwo + r.valthree;
     }
-    var table(double total) result = table();
+    var table(double total) result = table(double total);
     var row(double total) rowTotal = row(double total = sum);
     table_add_row(result, rowTotal);
     return result;

@@ -1,0 +1,3 @@
+//Only columns specified are imported
+print(import("programs/data/stock.csv", table(int id)));
+print(import("programs/data/stock.csv", table(bool in_stock)));

@@ -9,8 +9,8 @@ use std::{
 use crate::frontend::ast::{Expr, Parameter, TypeConstruct};
 
 use super::{
-    environment::{EnvironmentCell, ExpressionValue, WrenchFunction, env_get},
-    evaluate::{evaluate_custom_function_call, evaluate_expression},
+    environment::{EnvironmentCell, WrenchFunction, env_get},
+    evaluate::{ExpressionValue, evaluate_custom_function_call, evaluate_expression},
     library::{import_csv, wrench_print},
     table::{Row, Table, TableCellType},
 };
@@ -159,9 +159,6 @@ pub fn evaluate_pipes(
         }
         PipeFunction::Print => {
             table = Table::new(HashMap::new());
-            for row in rx.iter() {
-                table.add_row(row.clone());
-            }
         }
     }
 
@@ -415,4 +412,94 @@ fn evaluate_fn_table_call(
         .collect();
     let result = evaluate_custom_function_call(&function, expression_args);
     expression_value_to_pipe_value(result)
+}
+#[cfg(test)]
+mod tests {
+    use crate::frontend::ast::Statement;
+
+    use super::*;
+
+    fn make_env_with_function(_: &str, func: WrenchFunction) -> Vec<Vec<EnvironmentCell>> {
+        vec![vec![EnvironmentCell::Function(func)]]
+    }
+
+    fn dummy_wrench_function(return_type: TypeConstruct) -> WrenchFunction {
+        WrenchFunction {
+            name: "dummy".to_string(),
+            parameters: vec![Parameter::Parameter(
+                TypeConstruct::Table(vec![Parameter::Parameter(
+                    TypeConstruct::Int,
+                    "col".to_string(),
+                )]),
+                "input".to_string(),
+            )],
+            return_type,
+            body: Box::new(Statement::Skip),
+            closure: vec![],
+        }
+    }
+
+    #[test]
+    fn test_expression_value_to_pipe_value_and_back() {
+        let exprs = vec![
+            ExpressionValue::Number(42),
+            ExpressionValue::Double(3.14),
+            ExpressionValue::String("hello".to_string()),
+            ExpressionValue::Bool(true),
+            ExpressionValue::Null,
+            ExpressionValue::Array(vec![ExpressionValue::Number(1), ExpressionValue::Number(2)]),
+        ];
+
+        for expr in exprs {
+            let pipe_val = expression_value_to_pipe_value(expr.clone());
+            let expr_back = pipe_value_to_expression_value(pipe_val);
+            assert_eq!(format!("{:?}", expr), format!("{:?}", expr_back));
+        }
+    }
+
+    #[test]
+    fn test_pipe_rollout_single() {
+        let func = dummy_wrench_function(TypeConstruct::Table(vec![Parameter::Parameter(
+            TypeConstruct::Int,
+            "col".to_string(),
+        )]));
+        let env = &mut make_env_with_function("dummy", func.clone());
+        let expr = Box::new(Expr::Number(1));
+        let (pipes, initial) = pipe_rollout(expr.clone(), "dummy".to_string(), vec![], env);
+        assert_eq!(pipes.len(), 1);
+        assert_eq!(format!("{:?}", *initial), format!("{:?}", *expr));
+    }
+
+    #[test]
+    fn test_pipe_type_map() {
+        let func = dummy_wrench_function(TypeConstruct::Int);
+        let pipe = SimplePipe {
+            function: PipeFunction::Custom(func.clone()),
+            args: vec![],
+        };
+        assert!(matches!(pipe.get_pipe_type(), PipeType::Map));
+    }
+
+    #[test]
+    fn test_pipe_type_filter() {
+        let func = dummy_wrench_function(TypeConstruct::Bool);
+        let pipe = SimplePipe {
+            function: PipeFunction::Custom(func.clone()),
+            args: vec![],
+        };
+        assert!(matches!(pipe.get_pipe_type(), PipeType::Filter));
+    }
+
+    #[test]
+    fn test_pipe_type_reduce() {
+        let func = dummy_wrench_function(TypeConstruct::Table(vec![Parameter::Parameter(
+            TypeConstruct::Int,
+            "col".to_string(),
+        )]));
+        let pipe = SimplePipe {
+            function: PipeFunction::Custom(func.clone()),
+            args: vec![],
+        };
+        assert!(matches!(pipe.get_pipe_type(), PipeType::Reduce));
+    }
 }

@@ -1,0 +1,4 @@
+//Program should fail in type_checker due to reassign of constant
+//Expected error: "Type checking failed: Cannot assign to constant variable 'i'"
+const int i = 4;
+i = 2;
