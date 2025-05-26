@@ -429,6 +429,67 @@ mod tests {
         create_syntax_tree("myfunction(name age)"); //Dont forget commas between args
     }
 
+    //Check that the correct version of edge cases is working!
+    #[test]
+    fn unmatched_paran_correct() {
+        create_syntax_tree("100 + (2 * 3);");
+    }
+
+    #[test]
+    fn unmatched_paran2_correct() {
+        create_syntax_tree("100 + (2 * 3);");
+    }
+
+    #[test]
+    fn missing_semicolon_correct() {
+        create_syntax_tree("var int x = 2;");
+    }
+
+    #[test]
+    fn invalid_identifiername_correct() {
+        create_syntax_tree("var string myname = \"Isabella\";");
+    }
+
+    #[test]
+    fn invalid_coma_and_questionmark_correct() {
+        create_syntax_tree("print(100, 800 );");
+    }
+
+    #[test]
+    fn nobody_function_declr_correct() {
+        create_syntax_tree("fn double dummy(double y){};");
+    }
+
+    #[test]
+    fn invalid_expr_correct() {
+        create_syntax_tree("print(11 + 11);");
+    }
+
+    #[test]
+    fn invalid_array_index_correct() {
+        create_syntax_tree("arr[0];");
+    }
+
+    #[test]
+    fn invalid_operation_correct() {
+        create_syntax_tree("1 + 2;");
+    }
+
+    #[test]
+    fn invalid_row_decl_correct() {
+        create_syntax_tree("row(int age = 5);");
+    }
+
+    #[test]
+    fn invalid_table_decl_correct() {
+        create_syntax_tree("table(int age, string name);");
+    }
+
+    #[test]
+    fn callingfunction_incorrectly_correct() {
+        create_syntax_tree("myfunction(name , age);"); //Dont forget commas between args
+    }
+
     /*
     ========================================================
     Integration Tests for parser
