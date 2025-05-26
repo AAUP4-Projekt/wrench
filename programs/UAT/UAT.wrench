@@ -1,0 +1,11 @@
+var table(string name, int id, bool in_stock) stock_table = import("programs/data/stock.csv", table(string name, int id, bool in_stock));
+
+var row(string name, int id, bool in_stock) tesla_row = row(string name = "TSLA", int id = 666, bool in_stock = true);
+
+fn table(string name, int id, bool in_stock) add_new_stock(table(string name, int id, bool in_stock) stock_table, row(string name, int id, bool in_stock) newStock){
+    table_add_row(stock_table, newStock);
+    return stock_table;
+};
+
+add_new_stock(stock_table, tesla_row);
+print(stock_table);

@@ -1,0 +1,19 @@
+//Alvorligheds grader
+//0 = Kosmetisk skade
+//1 = Funktionskade/Bygingsskade
+//2 = Totaltskade/Kørt genems nogens hus
+//3 = Dødsfald
+//4 = Alle parter døde
+
+var table(int skade_id, string foore, string nummerplade, int alvorlighed, string skade_beskrivelse) skadeTable = import ("programs\UAT\skader.csv", table(int skade_id, string foore, string nummerplade, int alvorlighed, string skade_beskrivelse));
+
+fn int print_oversigt_skader_efter_alvorlighed(table(int skade_id, string foore, string nummerplade, int alvorlighed, string skade_beskrivelse) skadeTable, int alvorlighed){
+    for(row(int skade_id, string foore, string nummerplade, int alvorlighed, string skade_beskrivelse) r in skadeTable){
+        if(r.alvorlighed == alvorlighed){
+            print(r);
+        }
+    }
+    return 0;
+};
+
+print_oversigt_skader_efter_alvorlighed(skadeTable, 3);
