@@ -972,7 +972,7 @@ mod tests {
             fn int add(int a, int b) {
                 return a + b;
             };
-            var int result = add(3, 3);
+            var int result = add(3);
         ";
         let tree = create_syntax_tree(statement);
         let mut scope_stack = vec![HashMap::new()];
