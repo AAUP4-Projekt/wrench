@@ -1,0 +1,3 @@
+fn string test(int a) {
+    return a;
+};
